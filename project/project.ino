@@ -3,6 +3,7 @@
 #include "html510.h"
 
 
+
 HTML510Server h(80);
 
 
@@ -55,6 +56,7 @@ void handleL() {
 
 void handleKeyPressed(){
   String key = h.getText();
+  key.replace("%22", "\"");
   h.sendplain(key);
   Serial.println("Key Pressed: " + key);
 }
