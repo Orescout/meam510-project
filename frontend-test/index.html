@@ -142,17 +142,15 @@
 </head>
 
 <body>
-  <b>Select X: </b>
-  <input type="range" min="0" max="100" value="50" id="X_slider">
-  <span id="frequency_display_text"> </span> <br> <br>
+  <b>Change Speed (type 0-9): </b>
+  <input type="range" min="0" max="9" value="5" id="speed_slider">
+  <span id="speed_display_text"> </span> <br> <br>
 
   <b>Key Pressed: </b>
   <span id="last_key_pressed_text"> </span> <br>
 
   <b>Server Response: </b>
   <span id="response_text"> </span> <br>
-
-  <div id="element"></div>
 
   <span class="arrowbtn arrowbtn-lookup" id="arrow-lookup"></span>
   <span class="arrowbtn arrowbtn-lookdown" id="arrow-lookdown"></span>
@@ -173,6 +171,11 @@
     } else { // OFF
       document.getElementById(element_ID).style.background = "rgba(255, 255, 255, 0)";
     }
+  }
+
+  function setSpeed(speed) {
+    document.getElementById("speed_slider").value = speed;
+    document.getElementById("speed_display_text").innerHTML = speed.toString();
   }
 
   function sendToESP(text) {
@@ -213,20 +216,20 @@
     toggleColor("arrow-movedown", map[83]); // S
     toggleColor("arrow-moveleft", map[65]); // A
     toggleColor("arrow-moveright", map[68]); // D
-  }
 
-//  duty_cycle_slider.onchange = function() {
-//    var xhttp = new XMLHttpRequest();
-//    xhttp.onreadystatechange = function() {
-//      if (this.readyState == 4 && this.status == 200) {
-//        document.getElementById("duty_cycle_display_text").innerHTML = this.responseText;
-//      }
-//    };
-//    var str = "duty_cycle_slider?val=";
-//    var res = str.concat(this.value);
-//    xhttp.open("GET", res, true);
-//    xhttp.send(); 
-//  }
+    // Speed
+    if (map[48] || map[49] || map[50] || map[51] || map[52] || map[53] || map[54] || map[55] || map[56] || map[57]) {
+      setSpeed(e.key);
+    }
+
+    /* Turbo Mode
+    if (map[16]) {
+      document.style.background = "rgb(255, 51, 51)";
+    } else {
+      document.style.background = "rgb(35, 35, 35)";
+    }
+    */
+  }
 
 
 </script>
