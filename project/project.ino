@@ -1,12 +1,9 @@
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  WIFI  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #include "body.h"
 #include "html510.h"
-
-
+#include "Libraries/ArduinoJson.h"
 
 HTML510Server h(80);
-
-
 
 const char* ssid = "TEAM HAWAII WIFI";
 const char* password = "borabora";
@@ -18,7 +15,6 @@ const char* password = "borabora";
 #define LEDC_RESOLUTION ((1<<LEDC_RESOLUTION_BITS)-1) 
 #define LEDC_FREQ_HZ 6000
 #define LEDPIN 1
-
 #define LED_BUILTIN 2
 #define Hz 10
 
@@ -32,46 +28,61 @@ void handleRoot() {
   h.sendhtml(body);
 }
 
-void handleH() {
-  digitalWrite(LEDPIN, HIGH); // LED ON
-  h.sendhtml(body);
-}
-
-void handleL() {
-  digitalWrite(LEDPIN, LOW); // LED OFF
-  h.sendhtml(body);
-}
-//
-//void handleFrequencySlider(){
-//  int v = h.getVal();
-//  h.sendplain(String(v));
-//  Serial.print("Frequency: "); Serial.println(String(h.getVal()));
-//}
-//
-//void handleDutyCycleSlider(){
-//  String v = String(h.getVal());
-//  h.sendplain(v + "%");
-//  Serial.print("Duty Cycle: "); Serial.print(v); Serial.println("%");
-//}
-
 void handleKeyPressed(){
-  String key = h.getText();
-  key.replace("%22", "\"");
-  h.sendplain(key);
-  Serial.println("Key Pressed: " + key);
+  String keys = h.getText();
+  keys.replace("%22", "\""); // Reconstruct quotations "" in JSON
+  h.sendplain(keys);
+  Serial.println("Keys Pressed: " + keys);
+
+  StaticJsonBuffer<140> jsonBuffer; // Create the JSON buffer
+  JsonObject& keysJSON = jsonBuffer.parseObject(keys); // Parse and create json object
+
+  // Look variables
+  int look_up = keysJSON["38"];
+  int look_down = keysJSON["40"];
+  int look_left = keysJSON["37"];
+  int look_right = keysJSON["39"];\
+  if (look_up == look_down == 1) { // If both look up+down --> cancel out
+    look_up = 0;
+    look_down = 0;
+  }
+  if (look_right == look_left == 1) { // If both look left+right --> cancel out
+    look_right = 0;
+    look_left = 0;
+  }
+
+  // Move variables
+  int move_up = keysJSON["87"];
+  int move_down = keysJSON["83"];
+  int move_left = keysJSON["65"];
+  int move_right = keysJSON["68"];
+  if (move_up == move_down == 1) { // If both look up+down --> cancel out
+    move_up = 0;
+    move_down = 0;
+  }
+  if (move_right == move_left == 1) { // If both look left+right --> cancel out
+    move_right = 0;
+    move_left = 0;
+  }
+
+  // Speed variables
+//  int speed_0  = keysJSON["48"];
+//  int speed_0  = keysJSON["48"];
+//  int speed_0  = keysJSON["48"];
+//  int speed_0  = keysJSON["48"];
+//  int speed_0  = keysJSON["48"];
+//  int speed_0  = keysJSON["48"];
+//  int speed_0  = keysJSON["48"];
+//  int speed_0  = keysJSON["48"];
+//  int speed_0  = keysJSON["48"];
 }
 
 
 void setup() { // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SETUP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
-//  (LEDC_CHANNEL, LEDC_FREQ_HZ, LEDC_RESOLUTION_BITS);
-//  ledcAledcSetupttachPin(LEDPIN, LEDC_CHANNEL);
-//  Serial.begin(9600);
-//  pinMode(LED_BUILTIN, OUTPUT);
-//  pinMode(5, INPUT);
   pinMode(LEDPIN, OUTPUT);
 
-  Serial.begin(9600);
+  Serial.begin(115200);
   
   Serial.print("Access Point SSID: "); Serial.print(ssid);
   WiFi.mode(WIFI_AP); // Set Mode to Access Point
@@ -83,33 +94,14 @@ void setup() { // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SETUP ~~~~~~~~~~~~~~~~~~~~~~~~~
   Serial.print("Use this URL to connect: http://"); Serial.print(myIP); Serial.println("/"); // Print the IP to connect to
   
   h.begin();
-//  h.attachHandler("/H", handleH);
-//  h.attachHandler("/L", handleL);
+
   h.attachHandler("/ ", handleRoot);
-//  h.attachHandler("/frequency_slider?val=", handleFrequencySlider);
-//  h.attachHandler("/duty_cycle_slider?val=", handleDutyCycleSlider);
   h.attachHandler("/key_pressed?val=", handleKeyPressed);
 }
 
 void loop() { // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LOOP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   h.serve();
   delay(10);
-
-//    ledcWrite(LEDC_CHANNEL, 0);
-//    delay(1000);
-//    ledcWrite(LEDC_CHANNEL, 200);
-//    delay(1000);
-  
-//  int duty_cycle = (int) analogRead(5) / 16.1;
-//  ledcWrite(LEDC_CHANNEL, duty_cycle);
-//  
-//  println(analogRead(5));
-//  println(duty_cycle);
-//
-//  delay((int) 1000.0 * 1.0 / Hz);
-
-//  ledcWrite(LEDC_CHANNEL, 0);
-//  delay((int) 1000.0 * 1.0 / Hz);
 }
 
 // https://medesign.seas.upenn.edu/index.php/Guides/ESP32-pins
