@@ -1,43 +1,3 @@
-//PWM output pins
-#define MOTOR_PWM_GPIO_A 4
-#define MOTOR_PWM_GPIO_B 5
-#define MOTOR_PWM_GPIO_C 6
-#define MOTOR_PWM_GPIO_D 7
-//PWM channels for ledC
-#define PWM_CH_A 0
-#define PWM_CH_B 1
-#define PWM_CH_C 2
-#define PWM_CH_D 3
-//direction pins
-#define DIRECTION_GPIO_A 14
-#define DIRECTION_GPIO_B 13
-#define DIRECTION_GPIO_C 12
-#define DIRECTION_GPIO_D 11
-//encoder pins
-#define ENCODER_GPIO_A 1
-#define ENCODER_GPIO_B 2
-#define ENCODER_GPIO_C 42
-#define ENCODER_GPIO_D 41
-//intitial direction of motors
-//1 is CW, 0 is CCW
-#define DIR_A 1
-#define DIR_B 1
-#define DIR_C 1
-#define DIR_D 1
-
-//PWM setup
-#define PWM_RES 12
-#define PWM_FREQ 25
-//time keeping variable
-float tick = 0.0;
-//time interval for slot calculation (in milliseconds)
-#define TIME_INTERVAL 200
-
-//PID setup
-#define Kp .05
-#define Ki 1.1
-
-
 class Motor {
   private:
     int motor_pwm_gpio;
@@ -162,43 +122,8 @@ class Motor {
 }; 
 
 
-//creating all the motor objects
+// Creating all the motor objects
 Motor motorA(MOTOR_PWM_GPIO_A, PWM_CH_A, DIRECTION_GPIO_A, ENCODER_GPIO_A, DIR_A);
 Motor motorB(MOTOR_PWM_GPIO_B, PWM_CH_B, DIRECTION_GPIO_B, ENCODER_GPIO_B, DIR_B);
 Motor motorC(MOTOR_PWM_GPIO_C, PWM_CH_C, DIRECTION_GPIO_C, ENCODER_GPIO_C, DIR_C);
 Motor motorD(MOTOR_PWM_GPIO_D, PWM_CH_D, DIRECTION_GPIO_D, ENCODER_GPIO_D, DIR_D);
-
-void setup() {
-  //for printing
-  Serial.begin(9600);
-  
-}
-
-// the loop function runs over and over again forever
-void loop() {
-
-  //SPEED Changing
-  //reading potentiometer
-  int target_speed = 9;
-
-  //change speed once enough time has passed
-  if(millis()-tick > TIME_INTERVAL) {
-    tick = millis();
-    motorA.changeSpeed(target_speed);
-    //motorB.changeSpeed(target_speed);
-    //motorC.changeSpeed(target_speed);
-    //motorD.changeSpeed(target_speed);
-  }
-  //keep track of how many slots are going by
-  motorA.updateEncoder();
-  //motorB.updateEncoder();
-  //motorC.updateEncoder();
-  //motorD.updateEncoder();
-
-  //example of how changing direction will work
-  motorA.changeDirection(1);
-  
-  //delay
-  delay(10);
-  Serial.println("");
-}
