@@ -24,10 +24,14 @@ const char* password = "borabora";
 #define PWM_CH_D 3
 
 //direction pins
-#define DIRECTION_GPIO_A 14
-#define DIRECTION_GPIO_B 13
-#define DIRECTION_GPIO_C 12
-#define DIRECTION_GPIO_D 11
+#define DIRECTION_MOTOR_A_GPIO_ONE 14
+#define DIRECTION_MOTOR_A_GPIO_TWO 13
+#define DIRECTION_MOTOR_B_GPIO_ONE 12
+#define DIRECTION_MOTOR_B_GPIO_TWO 11
+#define DIRECTION_MOTOR_C_GPIO_ONE 10
+#define DIRECTION_MOTOR_C_GPIO_TWO 9
+#define DIRECTION_MOTOR_D_GPIO_ONE 3
+#define DIRECTION_MOTOR_D_GPIO_TWO 8
 
 //encoder pins
 #define ENCODER_GPIO_A 1
@@ -143,7 +147,7 @@ public:
     void go(int targetSpeed)
     {
 
-      ledcWrite(this->pwm_ch, 3000); // TODO: CHANGE IF SHIT GOES TO HELL
+      ledcWrite(this->pwm_ch, 4000); // TODO: CHANGE IF SHIT GOES TO HELL
       
         // // this is the number of slots per time interval it is moving
         // int currentSpeed = this->getVel();
@@ -201,16 +205,16 @@ public:
         {
             // CCW; BACKWARD
             digitalWrite(this->direction_gpio_A, HIGH);
-            digitalWrite(this->direction_gpio_B, HIGH);
+            digitalWrite(this->direction_gpio_B, LOW);
         }
     }
 };
 
 // Creating all the motor objects
-Motor motorFrontLeft(MOTOR_PWM_GPIO_A, PWM_CH_A, DIRECTION_GPIO_A, DIRECTION_GPIO_B, ENCODER_GPIO_A, DIR_A);
-// Motor motorFrontRight(MOTOR_PWM_GPIO_B, PWM_CH_B, DIRECTION_GPIO_B, ENCODER_GPIO_B, DIR_B);
-// Motor motorBackLeft(MOTOR_PWM_GPIO_C, PWM_CH_C, DIRECTION_GPIO_C, ENCODER_GPIO_C, DIR_C);
-// Motor motorBackRight(MOTOR_PWM_GPIO_D, PWM_CH_D, DIRECTION_GPIO_D, ENCODER_GPIO_D, DIR_D);
+Motor motorFrontLeft(MOTOR_PWM_GPIO_A, PWM_CH_A, DIRECTION_MOTOR_A_GPIO_ONE, DIRECTION_MOTOR_A_GPIO_TWO, ENCODER_GPIO_A, DIR_A);
+Motor motorFrontRight(MOTOR_PWM_GPIO_B, PWM_CH_B, DIRECTION_MOTOR_B_GPIO_ONE, DIRECTION_MOTOR_B_GPIO_TWO, ENCODER_GPIO_B, DIR_B);
+Motor motorBackLeft(MOTOR_PWM_GPIO_C, PWM_CH_C, DIRECTION_MOTOR_C_GPIO_ONE, DIRECTION_MOTOR_C_GPIO_TWO, ENCODER_GPIO_C, DIR_C);
+Motor motorBackRight(MOTOR_PWM_GPIO_D, PWM_CH_D, DIRECTION_MOTOR_D_GPIO_ONE, DIRECTION_MOTOR_D_GPIO_TWO, ENCODER_GPIO_D, DIR_D);
 
 void println(int x) {
   Serial.println(x);
@@ -297,12 +301,13 @@ void handleKeyPressed(){
   drive(move_degrees, look_direction, current_speed);
 }
 
-void turnOnAllMotors() {
+void turnOnAllMotors(int speed) {
   motorFrontLeft.go(speed);
   motorBackLeft.go(speed);
   motorFrontRight.go(speed);
   motorBackRight.go(speed);
 }
+
 void drive(int move_degrees, int look_direction, int speed) {
   // TODO: @Sophie
 
@@ -314,7 +319,7 @@ void drive(int move_degrees, int look_direction, int speed) {
     motorBackRight.changeDirection(0); 
 
     //turn on motors 
-    turnOnAllMotors();
+    turnOnAllMotors(speed);
   }
   if (look_direction == -1 && move_degrees == -1) { //look left: rotate CCW;
     motorFrontLeft.changeDirection(0); 
@@ -323,16 +328,16 @@ void drive(int move_degrees, int look_direction, int speed) {
     motorBackRight.changeDirection(1);
 
     //turn on motors 
-  }s
+  }
 
-  switch move_degrees {
+  switch (move_degrees) {
     case 0: // move forward
       motorFrontLeft.changeDirection(1);
       motorBackLeft.changeDirection(1);
       motorFrontRight.changeDirection(1);
       motorBackRight.changeDirection(1);
 
-      turnOnAllMotors(); //turn on motors
+      turnOnAllMotors(speed); //turn on motors
       break;
     case 45: //45 deg right
       motorFrontRight.changeDirection(1);
@@ -347,7 +352,7 @@ void drive(int move_degrees, int look_direction, int speed) {
       motorFrontRight.changeDirection(0);
       motorBackRight.changeDirection(1);
 
-      turnOnAllMotors();
+      turnOnAllMotors(speed);
       break;
     case 135: // SE
       motorFrontLeft.changeDirection(0);
@@ -363,7 +368,7 @@ void drive(int move_degrees, int look_direction, int speed) {
       motorFrontRight.changeDirection(0);
       motorBackRight.changeDirection(0);
 
-      turnOnAllMotors(); //turn on motors
+      turnOnAllMotors(speed); //turn on motors
       break;
     case 225: //SW
       motorFrontRight.changeDirection(0);
@@ -379,7 +384,7 @@ void drive(int move_degrees, int look_direction, int speed) {
       motorFrontRight.changeDirection(1);
       motorBackRight.changeDirection(0);
 
-      turnOnAllMotors(); //turn on motors
+      turnOnAllMotors(speed); //turn on motors
       break;
     case 315: // NW
       motorFrontLeft.changeDirection(1);
