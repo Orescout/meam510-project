@@ -61,7 +61,8 @@ class Motor
 private:
     int motor_pwm_gpio;
     int pwm_ch;
-    int direction_gpio;
+    int direction_gpio_A;
+    int direction_gpio_B;
     int encoder_gpio;
     int dir;
     int encoder_state;
@@ -71,11 +72,12 @@ private:
     float integration_sum_PID;
 
 public:
-    Motor(int motor_pwm_gpio, int pwm_ch, int direction_gpio, int encoder_gpio, int dir)
+    Motor(int motor_pwm_gpio, int pwm_ch, int direction_gpio_A, int direction_gpio_B, int encoder_gpio, int dir)
     {
         this->motor_pwm_gpio = motor_pwm_gpio;
         this->pwm_ch = pwm_ch;
-        this->direction_gpio = direction_gpio;
+        this->direction_gpio_A = direction_gpio_A;
+        this->direction_gpio_B = direction_gpio_B;
         this->encoder_gpio = encoder_gpio;
         this->dir = dir;
 
@@ -88,7 +90,12 @@ public:
         ledcSetup(this->pwm_ch, PWM_FREQ, PWM_RES);
 
         // direction pin setup
-        pinMode(this->direction_gpio, OUTPUT);
+        pinMode(this->direction_gpio_A, OUTPUT);
+        pinMode(this->direction_gpio_B, OUTPUT);
+
+        // CW; FORWARD
+        digitalWrite(this->direction_gpio_A, LOW);
+        digitalWrite(this->direction_gpio_B, HIGH);
 
         // encoder pin setup
         pinMode(this->encoder_gpio, INPUT);
@@ -133,47 +140,50 @@ public:
     }
 
     // PID goes here!!!!!
-    void changeSpeed(int targetSpeed)
+    void go(int targetSpeed)
     {
-        // this is the number of slots per time interval it is moving
-        int currentSpeed = this->getVel();
 
-        Serial.print("Target: ");
-        Serial.println(targetSpeed);
-        Serial.print("Current: ");
-        Serial.println(currentSpeed);
+      ledcWrite(this->pwm_ch, 3000); // TODO: CHANGE IF SHIT GOES TO HELL
+      
+        // // this is the number of slots per time interval it is moving
+        // int currentSpeed = this->getVel();
 
-        // PID will be here
-        int error = targetSpeed - currentSpeed; //[slots/timeinterval]
-        float proportional = Kp * error;
-        Serial.print("proportional: ");
-        Serial.println(proportional);
-        Serial.print("Existing integration sum: ");
-        Serial.println(integration_sum_PID);
-        this->integration_sum_PID = Ki * (this->integration_sum_PID + error * TIME_INTERVAL / 1000);
-        Serial.print("integration_sum_PID: ");
-        Serial.println(integration_sum_PID);
+        // Serial.print("Target: ");
+        // Serial.println(targetSpeed);
+        // Serial.print("Current: ");
+        // Serial.println(currentSpeed);
 
-        // total_PI must be between 0 and 1
-        float total_PI = this->integration_sum_PID + proportional;
-        Serial.print("total_PI: ");
-        Serial.println(total_PI);
-        // TODO round it instead of cast
-        if (total_PI < (float)0.0)
-        {
-            total_PI = 0.0;
-        }
-        else if (total_PI > (float)1.0)
-        {
-            total_PI = 1.0;
-        }
-        // int new_duty_cycle = (int) min(max(total_PI, (float) 0.0), (float) 1.0) * (float) 4095.0;
-        int new_duty_cycle = (int)(total_PI * (float)4095.0);
-        Serial.print("DC: ");
-        Serial.println(new_duty_cycle);
+        // // PID will be here
+        // int error = targetSpeed - currentSpeed; //[slots/timeinterval]
+        // float proportional = Kp * error;
+        // Serial.print("proportional: ");
+        // Serial.println(proportional);
+        // Serial.print("Existing integration sum: ");
+        // Serial.println(integration_sum_PID);
+        // this->integration_sum_PID = Ki * (this->integration_sum_PID + error * TIME_INTERVAL / 1000);
+        // Serial.print("integration_sum_PID: ");
+        // Serial.println(integration_sum_PID);
 
-        // this is where the speed of the motor is changed based off of duty cycle 0-4095
-        ledcWrite(this->pwm_ch, new_duty_cycle);
+        // // total_PI must be between 0 and 1
+        // float total_PI = this->integration_sum_PID + proportional;
+        // Serial.print("total_PI: ");
+        // Serial.println(total_PI);
+        // // TODO round it instead of cast
+        // if (total_PI < (float)0.0)
+        // {
+        //     total_PI = 0.0;
+        // }
+        // else if (total_PI > (float)1.0)
+        // {
+        //     total_PI = 1.0;
+        // }
+        // // int new_duty_cycle = (int) min(max(total_PI, (float) 0.0), (float) 1.0) * (float) 4095.0;
+        // int new_duty_cycle = (int)(total_PI * (float)4095.0);
+        // Serial.print("DC: ");
+        // Serial.println(new_duty_cycle);
+
+        // // this is where the speed of the motor is changed based off of duty cycle 0-4095
+        // ledcWrite(this->pwm_ch, new_duty_cycle);
     }
 
     // change the direction that the motor is going
@@ -183,22 +193,24 @@ public:
         // set the direction that the motors moves
         if (new_dir == 1)
         {
-            // CW
-            digitalWrite(this->direction_gpio, LOW);
+            // CW; FORWARD
+            digitalWrite(this->direction_gpio_A, LOW);
+            digitalWrite(this->direction_gpio_B, HIGH);
         }
         else
         {
-            // CCW
-            digitalWrite(this->direction_gpio, HIGH);
+            // CCW; BACKWARD
+            digitalWrite(this->direction_gpio_A, HIGH);
+            digitalWrite(this->direction_gpio_B, HIGH);
         }
     }
 };
 
 // Creating all the motor objects
-Motor motorA(MOTOR_PWM_GPIO_A, PWM_CH_A, DIRECTION_GPIO_A, ENCODER_GPIO_A, DIR_A);
-Motor motorB(MOTOR_PWM_GPIO_B, PWM_CH_B, DIRECTION_GPIO_B, ENCODER_GPIO_B, DIR_B);
-Motor motorC(MOTOR_PWM_GPIO_C, PWM_CH_C, DIRECTION_GPIO_C, ENCODER_GPIO_C, DIR_C);
-Motor motorD(MOTOR_PWM_GPIO_D, PWM_CH_D, DIRECTION_GPIO_D, ENCODER_GPIO_D, DIR_D);
+Motor motorFrontLeft(MOTOR_PWM_GPIO_A, PWM_CH_A, DIRECTION_GPIO_A, DIRECTION_GPIO_B, ENCODER_GPIO_A, DIR_A);
+// Motor motorFrontRight(MOTOR_PWM_GPIO_B, PWM_CH_B, DIRECTION_GPIO_B, ENCODER_GPIO_B, DIR_B);
+// Motor motorBackLeft(MOTOR_PWM_GPIO_C, PWM_CH_C, DIRECTION_GPIO_C, ENCODER_GPIO_C, DIR_C);
+// Motor motorBackRight(MOTOR_PWM_GPIO_D, PWM_CH_D, DIRECTION_GPIO_D, ENCODER_GPIO_D, DIR_D);
 
 void println(int x) {
   Serial.println(x);
@@ -235,7 +247,7 @@ void handleKeyPressed(){
   }
 
   // Move variables
-  int move_up = keysJSON["87"];
+  int move_up = keysJSON["87"]; //QUESTION SOPH: WHAT DOES KEYSJSON DO? does it keep a record of how long key is pressed to determine how much to move degrees?
   int move_down = keysJSON["83"];
   int move_left = keysJSON["65"];
   int move_right = keysJSON["68"];
@@ -285,8 +297,99 @@ void handleKeyPressed(){
   drive(move_degrees, look_direction, current_speed);
 }
 
+void turnOnAllMotors() {
+  motorFrontLeft.go(speed);
+  motorBackLeft.go(speed);
+  motorFrontRight.go(speed);
+  motorBackRight.go(speed);
+}
 void drive(int move_degrees, int look_direction, int speed) {
   // TODO: @Sophie
+
+  //handle case where both look and move is on: only look if move not on
+  if (look_direction == 1  && move_degrees == -1) { //look right: rotate CW; 
+    motorFrontLeft.changeDirection(1);
+    motorBackLeft.changeDirection(1); 
+    motorFrontRight.changeDirection(0); 
+    motorBackRight.changeDirection(0); 
+
+    //turn on motors 
+    turnOnAllMotors();
+  }
+  if (look_direction == -1 && move_degrees == -1) { //look left: rotate CCW;
+    motorFrontLeft.changeDirection(0); 
+    motorBackLeft.changeDirection(0);
+    motorFrontRight.changeDirection(1);
+    motorBackRight.changeDirection(1);
+
+    //turn on motors 
+  }s
+
+  switch move_degrees {
+    case 0: // move forward
+      motorFrontLeft.changeDirection(1);
+      motorBackLeft.changeDirection(1);
+      motorFrontRight.changeDirection(1);
+      motorBackRight.changeDirection(1);
+
+      turnOnAllMotors(); //turn on motors
+      break;
+    case 45: //45 deg right
+      motorFrontRight.changeDirection(1);
+      motorBackLeft.changeDirection(1);
+
+      motorFrontRight.go(speed);
+      motorBackLeft.go(speed);
+      break;
+    case 90: // RIGHT
+      motorFrontLeft.changeDirection(1);
+      motorBackLeft.changeDirection(0);
+      motorFrontRight.changeDirection(0);
+      motorBackRight.changeDirection(1);
+
+      turnOnAllMotors();
+      break;
+    case 135: // SE
+      motorFrontLeft.changeDirection(0);
+      motorBackRight.changeDirection(0);
+
+      //turn on motors
+      motorFrontLeft.go(speed);
+      motorBackRight.go(speed);
+      break;
+    case 180: //BACK
+      motorFrontLeft.changeDirection(0);
+      motorBackLeft.changeDirection(0);
+      motorFrontRight.changeDirection(0);
+      motorBackRight.changeDirection(0);
+
+      turnOnAllMotors(); //turn on motors
+      break;
+    case 225: //SW
+      motorFrontRight.changeDirection(0);
+      motorBackLeft.changeDirection(0);
+
+      //turn on motors
+      motorFrontLeft.go(speed);
+      motorBackRight.go(speed);
+      break;
+    case 270: //LEFT
+      motorFrontLeft.changeDirection(0);
+      motorBackLeft.changeDirection(1);
+      motorFrontRight.changeDirection(1);
+      motorBackRight.changeDirection(0);
+
+      turnOnAllMotors(); //turn on motors
+      break;
+    case 315: // NW
+      motorFrontLeft.changeDirection(1);
+      motorBackRight.changeDirection(1);
+
+      //turn on motors
+      motorFrontLeft.go(speed);
+      motorBackRight.go(speed);
+      break;
+  }
 }
 
 void setup() {
