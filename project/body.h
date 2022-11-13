@@ -154,8 +154,6 @@ const char body[] PROGMEM = R"===(
   <b>Server Response: </b>
   <span id="response_text"> </span> <br>
 
-  <span class="arrowbtn arrowbtn-lookup" id="arrow-lookup"></span>
-  <span class="arrowbtn arrowbtn-lookdown" id="arrow-lookdown"></span>
   <span class="arrowbtn arrowbtn-lookleft" id="arrow-lookleft"></span>
   <span class="arrowbtn arrowbtn-lookright" id="arrow-lookright"></span>
 
@@ -208,8 +206,6 @@ const char body[] PROGMEM = R"===(
     }
 
     // Look
-    toggleColor("arrow-lookup", map[38]); // ArrowUp
-    toggleColor("arrow-lookdown", map[40]); // ArrowDown
     toggleColor("arrow-lookleft", map[37]); // ArrowLeft
     toggleColor("arrow-lookright", map[39]); // ArrowRight
     
