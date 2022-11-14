@@ -308,19 +308,23 @@ void handleKeyPressed(){
 
   drive(move_degrees, look_direction, current_speed);
 }
-
+//helper subroutine for drive()
 void turnOnAllMotors(int speed) {
   motorFrontLeft.go(speed);
   motorBackLeft.go(speed);
   motorFrontRight.go(speed);
   motorBackRight.go(speed);
 }
-
+//subroutine for turning each motor in the correct direction given the move_degree and look_direction
 void drive(int move_degrees, int look_direction, int speed) {
-  // TODO: @Sophie
 
-  //Q: HOW TO TURN OFF MOTORS?
-
+  //turn off motors if move_deg = -1 and look_dir = 0
+  if (move_degrees == -1 && look_direction == 0) {
+      motorFrontLeft.go(0);
+      motorFrontRight.go(0);
+      motorBackLeft.go(0);
+      motorBackRight.go(0);
+  }
   //handle case where both look and move is on: only look if move not on
   if (look_direction == 1  && move_degrees == -1) { //look right: rotate CW; 
     motorFrontLeft.changeDirection(1);
