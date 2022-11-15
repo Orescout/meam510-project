@@ -12,8 +12,8 @@ const char* ssid = "TEAM HAWAII WIFI";
 const char* password = "borabora";
 
 //PWM output pins
-#define MOTOR_PWM_GPIO_A 4
-#define MOTOR_PWM_GPIO_B 5
+#define MOTOR_PWM_GPIO_A 4 // Switched from 4 11/14
+#define MOTOR_PWM_GPIO_B 5 // Switched from 5 11/14
 #define MOTOR_PWM_GPIO_C 6
 #define MOTOR_PWM_GPIO_D 7
 
@@ -25,11 +25,11 @@ const char* password = "borabora";
 
 //direction pins
 //FL
-#define DIRECTION_MOTOR_A_GPIO_ONE 14
-#define DIRECTION_MOTOR_A_GPIO_TWO 13
+#define DIRECTION_MOTOR_A_GPIO_ONE 12 //SWITCHED
+#define DIRECTION_MOTOR_A_GPIO_TWO 11 //SWITCHED
 //FR
-#define DIRECTION_MOTOR_B_GPIO_ONE 12
-#define DIRECTION_MOTOR_B_GPIO_TWO 11
+#define DIRECTION_MOTOR_B_GPIO_ONE 14 //SWITCHED
+#define DIRECTION_MOTOR_B_GPIO_TWO 13 //SWITCHED
 //BL
 #define DIRECTION_MOTOR_C_GPIO_ONE 10
 #define DIRECTION_MOTOR_C_GPIO_TWO 9
@@ -45,7 +45,7 @@ const char* password = "borabora";
 
 //intitial direction of motors
 //1 is CW, 0 is CCW
-#define DIR_A 1
+#define DIR_A 0
 #define DIR_B 1
 #define DIR_C 1
 #define DIR_D 1
@@ -151,7 +151,7 @@ public:
     void go(int targetSpeed)
     {
       //ST EDIT
-      int temp_speed = 3000; //dummy pwm to pass to all motors unless passing in 0
+      int temp_speed = 1500; //dummy pwm to pass to all motors unless passing in 0
       if (targetSpeed == 0) { //case where we want motor to stop
         ledcWrite(this->pwm_ch, targetSpeed); // TODO: CHANGE IF SHIT GOES TO HELL
       } else {
@@ -243,7 +243,7 @@ void handleKeyPressed(){
 
   // Look variables
   int look_left = keysJSON["37"];
-  int look_right = keysJSON["39"];\
+  int look_right = keysJSON["39"];
   if (look_right == look_left == 1) { // If both look left+right --> cancel out
     look_right = 0;
     look_left = 0;
@@ -324,7 +324,9 @@ void drive(int move_degrees, int look_direction, int speed) {
       motorFrontRight.go(0);
       motorBackLeft.go(0);
       motorBackRight.go(0);
+      Serial.println("STOPPED");
   }
+
   //handle case where both look and move is on: only look if move not on
   if (look_direction == 1  && move_degrees == -1) { //look right: rotate CW; 
     motorFrontLeft.changeDirection(1);
@@ -349,7 +351,7 @@ void drive(int move_degrees, int look_direction, int speed) {
 
   switch (move_degrees) {
     case 0: // move forward
-      motorFrontLeft.changeDirection(1);
+      motorFrontLeft.changeDirection(0);
       motorBackLeft.changeDirection(0);//SWITCHED
       motorFrontRight.changeDirection(0);//SWITCHED
       motorBackRight.changeDirection(0);//SWITCHED
