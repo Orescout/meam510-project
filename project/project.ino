@@ -12,8 +12,8 @@ const char* ssid = "TEAM HAWAII WIFI";
 const char* password = "borabora";
 
 //PWM output pins
-#define MOTOR_PWM_GPIO_A 4 // Switched from 4 11/14
-#define MOTOR_PWM_GPIO_B 5 // Switched from 5 11/14
+#define MOTOR_PWM_GPIO_A 4 
+#define MOTOR_PWM_GPIO_B 5 
 #define MOTOR_PWM_GPIO_C 6
 #define MOTOR_PWM_GPIO_D 7
 
@@ -47,8 +47,16 @@ const char* password = "borabora";
 //1 is CW, 0 is CCW
 #define DIR_A 0
 #define DIR_B 1
-#define DIR_C 1
+#define DIR_C 0
 #define DIR_D 1
+
+//reverse direction
+#define BACK_DIR_A 1
+#define BACK_DIR_B 0 
+#define BACK_DIR_C 1
+#define BACK_DIR_D 0
+
+
 
 //PWM setup
 #define PWM_RES 12
@@ -219,10 +227,10 @@ public:
 };
 
 // Creating all the motor objects
-Motor motorFrontLeft(MOTOR_PWM_GPIO_A, PWM_CH_A, DIRECTION_MOTOR_A_GPIO_ONE, DIRECTION_MOTOR_A_GPIO_TWO, ENCODER_GPIO_A, DIR_A);
-Motor motorBackLeft(MOTOR_PWM_GPIO_B, PWM_CH_B, DIRECTION_MOTOR_B_GPIO_ONE, DIRECTION_MOTOR_B_GPIO_TWO, ENCODER_GPIO_B, DIR_B);
-Motor motorFrontRight(MOTOR_PWM_GPIO_C, PWM_CH_C, DIRECTION_MOTOR_C_GPIO_ONE, DIRECTION_MOTOR_C_GPIO_TWO, ENCODER_GPIO_C, DIR_C);
-Motor motorBackRight(MOTOR_PWM_GPIO_D, PWM_CH_D, DIRECTION_MOTOR_D_GPIO_ONE, DIRECTION_MOTOR_D_GPIO_TWO, ENCODER_GPIO_D, DIR_D);
+Motor motorFrontLeftA(MOTOR_PWM_GPIO_A, PWM_CH_A, DIRECTION_MOTOR_A_GPIO_ONE, DIRECTION_MOTOR_A_GPIO_TWO, ENCODER_GPIO_A, DIR_A);
+Motor motorBackLeftB(MOTOR_PWM_GPIO_B, PWM_CH_B, DIRECTION_MOTOR_B_GPIO_ONE, DIRECTION_MOTOR_B_GPIO_TWO, ENCODER_GPIO_B, DIR_B);
+Motor motorFrontRightC(MOTOR_PWM_GPIO_C, PWM_CH_C, DIRECTION_MOTOR_C_GPIO_ONE, DIRECTION_MOTOR_C_GPIO_TWO, ENCODER_GPIO_C, DIR_C);
+Motor motorBackRightD(MOTOR_PWM_GPIO_D, PWM_CH_D, DIRECTION_MOTOR_D_GPIO_ONE, DIRECTION_MOTOR_D_GPIO_TWO, ENCODER_GPIO_D, DIR_D);
 
 void println(int x) {
   Serial.println(x);
@@ -310,39 +318,39 @@ void handleKeyPressed(){
 }
 //helper subroutine for drive()
 void turnOnAllMotors(int speed) {
-  motorFrontLeft.go(speed);
-  motorBackLeft.go(speed);
-  motorFrontRight.go(speed);
-  motorBackRight.go(speed);
+  motorFrontLeftA.go(speed);
+  motorBackLeftB.go(speed);
+  motorFrontRightC.go(speed);
+  motorBackRightD.go(speed);
 }
 //subroutine for turning each motor in the correct direction given the move_degree and look_direction
 void drive(int move_degrees, int look_direction, int speed) {
 
   //turn off motors if move_deg = -1 and look_dir = 0
   if (move_degrees == -1 && look_direction == 0) {
-      motorFrontLeft.go(0);
-      motorFrontRight.go(0);
-      motorBackLeft.go(0);
-      motorBackRight.go(0);
+      motorFrontLeftA.go(0);
+      motorFrontRightC.go(0);
+      motorBackLeftB.go(0);
+      motorBackRightD.go(0);
       Serial.println("STOPPED");
   }
 
   //handle case where both look and move is on: only look if move not on
   if (look_direction == 1  && move_degrees == -1) { //look right: rotate CW; 
-    motorFrontLeft.changeDirection(1);
-    motorBackLeft.changeDirection(0); //SWITCHED
-    motorFrontRight.changeDirection(1); //SWITCHED
-    motorBackRight.changeDirection(1); //SWITCHED
+    motorFrontLeftA.changeDirection(DIR_A);
+    motorBackLeftB.changeDirection(DIR_B); 
+    motorFrontRightC.changeDirection(BACK_DIR_C); 
+    motorBackRightD.changeDirection(BACK_DIR_D); 
 
     //turn on motors 
     turnOnAllMotors(speed);
     Serial.println("LOOKING right");
   }
   if (look_direction == -1 && move_degrees == -1) { //look left: rotate CCW;
-    motorFrontLeft.changeDirection(0); 
-    motorBackLeft.changeDirection(1);//SWITCHED
-    motorFrontRight.changeDirection(0);//SWITCHED
-    motorBackRight.changeDirection(0);//SWITCHED
+    motorFrontLeftA.changeDirection(BACK_DIR_A); 
+    motorBackLeftB.changeDirection(BACK_DIR_B);
+    motorFrontRightC.changeDirection(DIR_C);
+    motorBackRightD.changeDirection(DIR_D);
 
     //turn on motors 
     turnOnAllMotors(speed);
@@ -351,89 +359,89 @@ void drive(int move_degrees, int look_direction, int speed) {
 
   switch (move_degrees) {
     case 0: // move forward
-      motorFrontLeft.changeDirection(0);
-      motorBackLeft.changeDirection(0);//SWITCHED
-      motorFrontRight.changeDirection(0);//SWITCHED
-      motorBackRight.changeDirection(0);//SWITCHED
+      motorFrontLeftA.changeDirection(DIR_A);
+      motorBackLeftB.changeDirection(DIR_B);
+      motorFrontRightC.changeDirection(DIR_C);
+      motorBackRightD.changeDirection(DIR_D);
 
       turnOnAllMotors(speed); //turn on motors
 
       Serial.println("0 degrees: MOVE N");
       break;
     case 45: //45 deg right, NE
-      motorFrontRight.changeDirection(0); //SWITCHED
-      motorBackLeft.changeDirection(0);//SWITCHED
+      motorFrontRightC.changeDirection(DIR_C);
+      motorBackLeftB.changeDirection(DIR_B);
 
-      motorFrontRight.go(speed);
-      motorBackLeft.go(speed);
-      motorFrontLeft.go(0);
-      motorBackRight.go(0);
+      motorFrontRightC.go(speed);
+      motorBackLeftB.go(speed);
+      motorFrontLeftA.go(0);
+      motorBackRightD.go(0);
 
       Serial.println("45 degrees: MOVE NE");
       break;
     case 90: // RIGHT; East
-      motorFrontLeft.changeDirection(1);
-      motorBackLeft.changeDirection(1); //SWITCHED
-      motorFrontRight.changeDirection(1);//SWITCHED
-      motorBackRight.changeDirection(0);//SWITCHED
+      motorFrontLeftA.changeDirection(DIR_A);
+      motorBackLeftB.changeDirection(BACK_DIR_B); 
+      motorFrontRightC.changeDirection(BACK_DIR_C);
+      motorBackRightD.changeDirection(DIR_D);
 
       turnOnAllMotors(speed);
       Serial.println("90 degrees: MOVE east");
       break;
     case 135: // SE
-      motorFrontLeft.changeDirection(0);
-      motorBackRight.changeDirection(1); //SWITCHED
+      motorFrontLeftA.changeDirection(BACK_DIR_A);
+      motorBackRightD.changeDirection(BACK_DIR_D); 
 
       //turn on motors
-      motorFrontLeft.go(speed);
-      motorBackRight.go(speed);
-      motorFrontRight.go(0);
-      motorBackLeft.go(0);
+      motorFrontLeftA.go(speed);
+      motorBackRightD.go(speed);
+      motorFrontRightC.go(0);
+      motorBackLeftB.go(0);
 
       Serial.println("135 degrees: MOVE SE");
       break;
     case 180: //SOUTH
-      motorFrontLeft.changeDirection(0);
-      motorBackLeft.changeDirection(1);//SWITCHED
-      motorFrontRight.changeDirection(1);//SWITCHED
-      motorBackRight.changeDirection(1);//SWITCHED
+      motorFrontLeftA.changeDirection(BACK_DIR_A);
+      motorBackLeftB.changeDirection(BACK_DIR_B);
+      motorFrontRightC.changeDirection(BACK_DIR_C);
+      motorBackRightD.changeDirection(BACK_DIR_D);
 
       turnOnAllMotors(speed); //turn on motors
 
       Serial.println("180 degrees: MOVE S");
       break;
     case 225: //SW
-      motorFrontRight.changeDirection(1);//SWITCHED
-      motorBackLeft.changeDirection(1);//SWITCHED
+      motorFrontRightC.changeDirection(BACK_DIR_C);
+      motorBackLeftB.changeDirection(BACK_DIR_B);
 
       //turn on motors
-      motorFrontRight.go(speed);
-      motorBackLeft.go(speed);
-      motorFrontLeft.go(0);
-      motorBackRight.go(0);
+      motorFrontRightC.go(speed);
+      motorBackLeftB.go(speed);
+      motorFrontLeftA.go(0);
+      motorBackRightD.go(0);
 
       Serial.println("225 degrees: MOVE SW");
       break;
     case 270: //WEST (left)
-      motorFrontLeft.changeDirection(0);
-      motorBackLeft.changeDirection(0);//SWITCHED
-      motorFrontRight.changeDirection(0);//SWITCHED
-      motorBackRight.changeDirection(1);//SWITCHED
+      motorFrontLeftA.changeDirection(BACK_DIR_A);
+      motorBackLeftB.changeDirection(DIR_B);
+      motorFrontRightC.changeDirection(DIR_C);
+      motorBackRightD.changeDirection(BACK_DIR_D);
 
       turnOnAllMotors(speed); //turn on motors
 
       Serial.println("270 degrees: MOVE W");
       break;
     case 315: // NW
-      motorFrontLeft.changeDirection(1);
-      motorBackRight.changeDirection(0); //SWITCHED
+      motorFrontLeftA.changeDirection(DIR_A);
+      motorBackRightD.changeDirection(DIR_D); 
   
 
       //turn on motors
-      motorFrontLeft.go(speed);
-      motorBackRight.go(speed);
-      motorFrontRight.go(0);
-      motorBackLeft.go(0);
+      motorFrontLeftA.go(speed);
+      motorBackRightD.go(speed);
+      motorFrontRightC.go(0);
+      motorBackLeftB.go(0);
 
       Serial.println("315 degrees: MOVE NW");
       break;
