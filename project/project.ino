@@ -11,31 +11,25 @@ HTML510Server h(80);
 const char* ssid = "TEAM HAWAII WIFI";
 const char* password = "borabora";
 
-//PWM output pins
-#define MOTOR_PWM_GPIO_A 4 
-#define MOTOR_PWM_GPIO_B 5 
-#define MOTOR_PWM_GPIO_C 6
-#define MOTOR_PWM_GPIO_D 7
-
 //PWM channels for ledC
 #define PWM_CH_A 0
 #define PWM_CH_B 1
 #define PWM_CH_C 2
 #define PWM_CH_D 3
 
-//direction pins
+//motor movement control pins
 //FL
-#define DIRECTION_MOTOR_A_GPIO_ONE 12 //SWITCHED
-#define DIRECTION_MOTOR_A_GPIO_TWO 11 //SWITCHED
+#define MOTOR_A_GPIO_ONE 12
+#define MOTOR_A_GPIO_TWO 11
 //FR
-#define DIRECTION_MOTOR_B_GPIO_ONE 14 //SWITCHED
-#define DIRECTION_MOTOR_B_GPIO_TWO 13 //SWITCHED
+#define MOTOR_B_GPIO_ONE 14
+#define MOTOR_B_GPIO_TWO 13
 //BL
-#define DIRECTION_MOTOR_C_GPIO_ONE 10
-#define DIRECTION_MOTOR_C_GPIO_TWO 9
+#define MOTOR_C_GPIO_ONE 10
+#define MOTOR_C_GPIO_TWO 9
 //BR
-#define DIRECTION_MOTOR_D_GPIO_ONE 3
-#define DIRECTION_MOTOR_D_GPIO_TWO 8
+#define MOTOR_D_GPIO_ONE 3
+#define MOTOR_D_GPIO_TWO 8
 
 //encoder pins
 #define ENCODER_GPIO_A 1
@@ -75,10 +69,9 @@ float tick = 0.0;
 class Motor
 {
 private:
-    int motor_pwm_gpio;
     int pwm_ch;
-    int direction_gpio_A;
-    int direction_gpio_B;
+    int move_gpio_one;
+    int move_gpio_two;
     int encoder_gpio;
     int dir;
     int encoder_state;
@@ -88,12 +81,11 @@ private:
     float integration_sum_PID;
 
 public:
-    Motor(int motor_pwm_gpio, int pwm_ch, int direction_gpio_A, int direction_gpio_B, int encoder_gpio, int dir)
+    Motor(int pwm_ch, int move_gpio_one, int move_gpio_two, int encoder_gpio, int dir)
     {
-        this->motor_pwm_gpio = motor_pwm_gpio;
         this->pwm_ch = pwm_ch;
-        this->direction_gpio_A = direction_gpio_A;
-        this->direction_gpio_B = direction_gpio_B;
+        this->move_gpio_one = move_gpio_one;
+        this->move_gpio_two = move_gpio_two;
         this->encoder_gpio = encoder_gpio;
         this->dir = dir;
 
@@ -101,17 +93,14 @@ public:
     }
     void init()
     {
-        // ledC setup
-        ledcAttachPin(this->motor_pwm_gpio, this->pwm_ch);
+        //movement pins setup
+        // setting pin one to be the PWM pin initially
+        ledcAttachPin(this->move_gpio_one, this->pwm_ch);
         ledcSetup(this->pwm_ch, PWM_FREQ, PWM_RES);
 
-        // direction pin setup
-        pinMode(this->direction_gpio_A, OUTPUT);
-        pinMode(this->direction_gpio_B, OUTPUT);
-
-        // set initial directions of GPIO direction pins to be HIGH and LOW
-        digitalWrite(this->direction_gpio_A, LOW);
-        digitalWrite(this->direction_gpio_B, HIGH);
+        // setting the other gpio (pin two) to be grounded
+        pinMode(this->move_gpio_two, OUTPUT);
+        digitalWrite(this->move_gpio_two, LOW);
 
         // encoder pin setup
         pinMode(this->encoder_gpio, INPUT);
@@ -124,6 +113,7 @@ public:
         this->integration_sum_PID = 0;
     }
 
+    
     // calculates velocity using how many slots have moved in the time interval
     int getVel()
     {
@@ -158,52 +148,9 @@ public:
     // PID goes here!!!!!
     void go(int targetSpeed)
     {
-      //ST EDIT
-      int temp_speed = 1500; //dummy pwm to pass to all motors unless passing in 0
-      if (targetSpeed == 0) { //case where we want motor to stop
-        ledcWrite(this->pwm_ch, targetSpeed); // TODO: CHANGE IF SHIT GOES TO HELL
-      } else {
-        ledcWrite(this->pwm_ch, temp_speed);
-      }
-        // // this is the number of slots per time interval it is moving
-        // int currentSpeed = this->getVel();
-
-        // Serial.print("Target: ");
-        // Serial.println(targetSpeed);
-        // Serial.print("Current: ");
-        // Serial.println(currentSpeed);
-
-        // // PID will be here
-        // int error = targetSpeed - currentSpeed; //[slots/timeinterval]
-        // float proportional = Kp * error;
-        // Serial.print("proportional: ");
-        // Serial.println(proportional);
-        // Serial.print("Existing integration sum: ");
-        // Serial.println(integration_sum_PID);
-        // this->integration_sum_PID = Ki * (this->integration_sum_PID + error * TIME_INTERVAL / 1000);
-        // Serial.print("integration_sum_PID: ");
-        // Serial.println(integration_sum_PID);
-
-        // // total_PI must be between 0 and 1
-        // float total_PI = this->integration_sum_PID + proportional;
-        // Serial.print("total_PI: ");
-        // Serial.println(total_PI);
-        // // TODO round it instead of cast
-        // if (total_PI < (float)0.0)
-        // {
-        //     total_PI = 0.0;
-        // }
-        // else if (total_PI > (float)1.0)
-        // {
-        //     total_PI = 1.0;
-        // }
-        // // int new_duty_cycle = (int) min(max(total_PI, (float) 0.0), (float) 1.0) * (float) 4095.0;
-        // int new_duty_cycle = (int)(total_PI * (float)4095.0);
-        // Serial.print("DC: ");
-        // Serial.println(new_duty_cycle);
-
-        // // this is where the speed of the motor is changed based off of duty cycle 0-4095
-        // ledcWrite(this->pwm_ch, new_duty_cycle);
+      
+      //may need to fuck with this to make the target speed enough pwm for it to move
+      ledcWrite(this->pwm_ch, targetSpeed*400);
     }
 
     // change the direction that the motor is going
@@ -214,23 +161,33 @@ public:
         if (new_dir == 1)
         {
             // CW; FORWARD
-            digitalWrite(this->direction_gpio_A, LOW);
-            digitalWrite(this->direction_gpio_B, HIGH);
+            // setting pin one to be the PWM pin
+            ledcAttachPin(this->move_gpio_one, this->pwm_ch);
+            ledcSetup(this->pwm_ch, PWM_FREQ, PWM_RES);
+    
+            // setting the other gpio (pin two) to be grounded
+            pinMode(this->move_gpio_two, OUTPUT);
+            digitalWrite(this->move_gpio_two, LOW);
         }
         else
         {
             // CCW; BACKWARD
-            digitalWrite(this->direction_gpio_A, HIGH);
-            digitalWrite(this->direction_gpio_B, LOW);
+            // setting pin two to be the PWM pin
+            ledcAttachPin(this->move_gpio_two, this->pwm_ch);
+            ledcSetup(this->pwm_ch, PWM_FREQ, PWM_RES);
+    
+            // setting the other gpio (pin one) to be grounded
+            pinMode(this->move_gpio_one, OUTPUT);
+            digitalWrite(this->move_gpio_one, LOW);
         }
     }
 };
 
 // Creating all the motor objects
-Motor motorFrontLeftA(MOTOR_PWM_GPIO_A, PWM_CH_A, DIRECTION_MOTOR_A_GPIO_ONE, DIRECTION_MOTOR_A_GPIO_TWO, ENCODER_GPIO_A, DIR_A);
-Motor motorBackLeftB(MOTOR_PWM_GPIO_B, PWM_CH_B, DIRECTION_MOTOR_B_GPIO_ONE, DIRECTION_MOTOR_B_GPIO_TWO, ENCODER_GPIO_B, DIR_B);
-Motor motorFrontRightC(MOTOR_PWM_GPIO_C, PWM_CH_C, DIRECTION_MOTOR_C_GPIO_ONE, DIRECTION_MOTOR_C_GPIO_TWO, ENCODER_GPIO_C, DIR_C);
-Motor motorBackRightD(MOTOR_PWM_GPIO_D, PWM_CH_D, DIRECTION_MOTOR_D_GPIO_ONE, DIRECTION_MOTOR_D_GPIO_TWO, ENCODER_GPIO_D, DIR_D);
+Motor motorFrontLeftA(PWM_CH_A, MOTOR_A_GPIO_ONE, MOTOR_A_GPIO_TWO, ENCODER_GPIO_A, DIR_A);
+Motor motorBackLeftB(PWM_CH_B, MOTOR_B_GPIO_ONE, MOTOR_B_GPIO_TWO, ENCODER_GPIO_B, DIR_B);
+Motor motorFrontRightC(PWM_CH_C, MOTOR_C_GPIO_ONE, MOTOR_C_GPIO_TWO, ENCODER_GPIO_C, DIR_C);
+Motor motorBackRightD(PWM_CH_D, MOTOR_D_GPIO_ONE, MOTOR_D_GPIO_TWO, ENCODER_GPIO_D, DIR_D);
 
 void println(int x) {
   Serial.println(x);
@@ -468,28 +425,6 @@ void setup() {
 
 void loop() {
   h.serve(); // listen to the frontend commands
-
-  // //SPEED Changing
-  // //reading potentiometer
-  // int target_speed = 9;
-
-  // //change speed once enough time has passed
-  // if(millis()-tick > TIME_INTERVAL) {
-  //   tick = millis();
-  //   motorA.changeSpeed(target_speed);
-  //   //motorB.changeSpeed(target_speed);
-  //   //motorC.changeSpeed(target_speed);
-  //   //motorD.changeSpeed(target_speed);
-  // }
-  // //keep track of how many slots are going by
-  // motorA.updateEncoder();
-  // //motorB.updateEncoder();
-  // //motorC.updateEncoder();
-  // //motorD.updateEncoder();
-
-  // //example of how changing direction will work
-  // motorA.changeDirection(1);
   
   delay(10);
-  // Serial.println(" ");
 }
