@@ -2,6 +2,7 @@
 #include "body.h"
 #include "html510.h"
 #include "Libraries/ArduinoJson.h"
+#include <esp_now.h>
 
 HTML510Server h(80);
 
@@ -10,6 +11,8 @@ HTML510Server h(80);
 // Wifi
 const char* ssid = "TEAM HAWAII WIFI";
 const char* password = "borabora";
+#define CHANNEL 1 // channel can be 1 to 14, channel 0 means current channel.  
+#define MAC_ESP_RECEIVER {0x84,0xF7,0x03,0xF7,0x80,0x14} // 84:F7:03:F7:80:14 - receiver MAC address (last digit should be even for STA)
 
 //PWM channels for ledC
 #define PWM_CH_A 0
@@ -191,6 +194,17 @@ Motor motorBackRightD(PWM_CH_D, MOTOR_D_GPIO_ONE, MOTOR_D_GPIO_TWO, ENCODER_GPIO
 
 void println(int x) {
   Serial.println(x);
+}
+
+esp_now_peer_info_t staffcomm = {
+  .peer_addr = {0x84,0xF7,0x03,0xA9,0x04,0x78}, 
+  .channel = 1, // channel can be 1 to 14, channel 0 means current channel.
+  .encrypt = false,
+};
+
+void pingstaff() {
+  uint8_t teamNum = 13;
+  esp_now_send(staffcomm.peer_addr, &teamNum, 1);     
 }
 
 void handleRoot() {
@@ -406,10 +420,15 @@ void drive(int move_degrees, int look_direction, int speed) {
 }
 
 void setup() {
-  Serial.begin(9600);
-  
-  Serial.print("Access Point SSID: "); Serial.print(ssid);
-  WiFi.mode(WIFI_AP); // Set Mode to Access Point
+  Serial.begin(115200); // Initialize Serial Port
+  WiFi.mode(WIFI_STA); // Set as Station
+  esp_now_init(); // Initialize ESPNOW protocol
+  esp_now_add_peer(&staffcomm); // Connect with staff receiver
+  Serial.print("Sending MAC: "); Serial.println(WiFi.macAddress());
+
+  Serial.print("Access Point SSID: ");
+  Serial.println(ssid);
+  // WiFi.mode(WIFI_AP); // Set Mode to Access Point
   WiFi.softAP(ssid, password); // Define access point SSID and its password
 
   IPAddress myIP(192, 168, 1, 161); // Define my unique Static IP (from spreadsheet on slides)

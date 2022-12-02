@@ -1,0 +1,32 @@
+/**
+ * Sample game sender to required staff
+ */
+
+#include <esp_now.h>
+#include <WiFi.h>
+
+esp_now_peer_info_t staffcomm = {
+  .peer_addr = {0x84,0xF7,0x03,0xA9,0x04,0x78}, 
+  .channel = 1,             // channel can be 1 to 14, channel 0 means current channel.
+  .encrypt = false,
+};
+
+void pingstaff() {
+  uint8_t teamNum = 5;
+  esp_now_send(staffcomm.peer_addr, &teamNum, 1);     
+}
+
+
+void setup() {
+  WiFi.mode(WIFI_STA);  
+
+  esp_now_init();      
+  esp_now_add_peer(&staffcomm);  
+}
+
+void loop() {
+  // when receiving any wifi communications, also send esp_now message with team number
+  pingstaff();
+    
+  delay(500);
+}
