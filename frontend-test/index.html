@@ -168,6 +168,7 @@
   
   <canvas class="canvas" id="canvas-background" width="705" height="285" style="border:1px solid #ffffff;"></canvas>
   <canvas class="canvas" id="canvas-robot" width="705" height="285"></canvas>
+  <canvas class="canvas" id="canvas-IR-vision" width="705" height="285"></canvas>
 
 </body>
 
@@ -243,12 +244,14 @@
   
   var robot_width = 50;
   var robot_height = 50;
-  var robot_center_X = 25;
-  var robot_center_Y = 25;
+  var robot_x_coordinate = 25;
+  var robot_y_coordinate = 25;
+  var degrees_robot = 45
 
   // Declare drawing objects
   var ctx_background = document.getElementById("canvas-background").getContext("2d");
   var ctx_robot = document.getElementById("canvas-robot").getContext("2d");
+  var ctx_IR_vision = document.getElementById("canvas-IR-vision").getContext("2d");
 
   drawCanvasBackground();
   
@@ -268,16 +271,30 @@
   
   }
 
-  moveRobot(robot_center_X, robot_center_Y, 45);
+  moveRobot(robot_x_coordinate, robot_y_coordinate, degrees_robot);
 
-  function moveRobot(x_coordinate, y_coordiante, degrees_facing) {
-    ctx_robot.fillStyle = "rgba(255, 255, 255, 0.5)";
-    ctx_robot.fillRect(x_coordinate - robot_width / 2, y_coordiante - robot_height / 2, robot_width, robot_height); // x, y, width, height
+  function moveRobot(x_coordinate, y_coordinate, degrees_facing) {
+    var offset_degrees = 135;
+    var radius = Math.sqrt((robot_width/2) ** 2 + (robot_height/2) ** 2);
+
+    // Get new coordinates of top left corner, after displacement rcos(theta) and rsin(theta)
+    var top_left_corner_x_coordinates = x_coordinate + radius * Math.cos((degrees_facing - offset_degrees) * Math.PI / 180);
+    var top_left_corner_y_coordinates = y_coordinate + radius * Math.sin((degrees_facing - offset_degrees) * Math.PI / 180);
+
+    // Draw robot location rectangle
+    ctx_robot.fillStyle = "rgba(255, 255, 255, 0.7)";
+    ctx_robot.translate(top_left_corner_x_coordinates, top_left_corner_y_coordinates);
+    ctx_robot.rotate(degrees_facing * Math.PI / 180);
+    ctx_robot.fillRect(0, 0, robot_width, robot_height);
+    
+    // Draw robot direction triangle
+    ctx_robot.fillStyle = "rgba(255, 0, 0, 0.7)";
+    ctx_robot.beginPath();
+    ctx_robot.moveTo(robot_width/5, robot_width/5);
+    ctx_robot.lineTo(robot_width/2, 0);
+    ctx_robot.lineTo(robot_width * (4 / 5), robot_width/5);
+    ctx_robot.fill();
    }
-
-  // ctx.moveTo(0, 0);
-  // ctx.lineTo(200, 100);
-  // ctx.stroke();
 
 
 </script>
