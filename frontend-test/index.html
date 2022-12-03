@@ -9,6 +9,12 @@
       color: rgb(235, 235, 235)
     }
 
+    .canvas {
+      position: absolute;
+      left:0px;
+      top:200px;
+    }
+
     .arrowbtn {
       position: absolute;
       width: 100px;
@@ -159,6 +165,10 @@
   <span class="arrowbtn arrowbtn-movedown" id="arrow-movedown"></span>
   <span class="arrowbtn arrowbtn-moveleft" id="arrow-moveleft"></span>
   <span class="arrowbtn arrowbtn-moveright" id="arrow-moveright"></span>
+  
+  <canvas class="canvas" id="canvas-background" width="705" height="285" style="border:1px solid #ffffff;"></canvas>
+  <canvas class="canvas" id="canvas-robot" width="705" height="285"></canvas>
+
 </body>
 
 <script>
@@ -226,6 +236,48 @@
     }
     */
   }
+
+  // https://canvas.upenn.edu/courses/1678530/files/folder/Lectures?preview=116609907
+  // Drawing canvas board
+
+  
+  var robot_width = 50;
+  var robot_height = 50;
+  var robot_center_X = 25;
+  var robot_center_Y = 25;
+
+  // Declare drawing objects
+  var ctx_background = document.getElementById("canvas-background").getContext("2d");
+  var ctx_robot = document.getElementById("canvas-robot").getContext("2d");
+
+  drawCanvasBackground();
+  
+  function drawCanvasBackground() {
+    var h = document.getElementById("canvas-background").clientHeight;
+    var w = document.getElementById("canvas-background").clientWidth;
+
+    ctx_background.fillStyle = "#003366";
+    ctx_background.fillRect(0, 0, w / 2, h); // draw our side
+
+    ctx_background.fillStyle = "#660033";
+    ctx_background.fillRect(w / 2, 0, w / 2, h); // draw opposite side
+    
+    ctx_background.strokeStyle = "rgba(0, 0, 0, 0.8)";
+    ctx_background.strokeRect(w / 4, h / 5, w / 8, h * (3/5)); // left 2x points box
+    ctx_background.strokeRect(w * (7.5/12), h / 5, w / 8, h * (3/5)); // right 2x points box
+  
+  }
+
+  moveRobot(robot_center_X, robot_center_Y, 45);
+
+  function moveRobot(x_coordinate, y_coordiante, degrees_facing) {
+    ctx_robot.fillStyle = "rgba(255, 255, 255, 0.5)";
+    ctx_robot.fillRect(x_coordinate - robot_width / 2, y_coordiante - robot_height / 2, robot_width, robot_height); // x, y, width, height
+   }
+
+  // ctx.moveTo(0, 0);
+  // ctx.lineTo(200, 100);
+  // ctx.stroke();
 
 
 </script>
