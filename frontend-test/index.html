@@ -228,25 +228,16 @@
     if (map[48] || map[49] || map[50] || map[51] || map[52] || map[53] || map[54] || map[55] || map[56] || map[57]) {
       setSpeed(e.key);
     }
-
-    /* Turbo Mode
-    if (map[16]) {
-      document.style.background = "rgb(255, 51, 51)";
-    } else {
-      document.style.background = "rgb(35, 35, 35)";
-    }
-    */
   }
-
-  // https://canvas.upenn.edu/courses/1678530/files/folder/Lectures?preview=116609907
-  // Drawing canvas board
 
   
   var robot_width = 50;
   var robot_height = 50;
   var robot_x_coordinate = 25;
-  var robot_y_coordinate = 25;
-  var degrees_robot = 45
+  var robot_y_coordinate = 200;
+  var degrees_robot = 90;
+  var see_700Hz_beacon = 1;
+  var see_32Hz_beacon = 0;
 
   // Declare drawing objects
   var ctx_background = document.getElementById("canvas-background").getContext("2d");
@@ -271,9 +262,9 @@
   
   }
 
-  moveRobot(robot_x_coordinate, robot_y_coordinate, degrees_robot);
+  moveRobot(robot_x_coordinate, robot_y_coordinate, degrees_robot, see_700Hz_beacon, see_32Hz_beacon);
 
-  function moveRobot(x_coordinate, y_coordinate, degrees_facing) {
+  function moveRobot(x_coordinate, y_coordinate, degrees_facing, see_700Hz_beacon, see_32Hz_beacon) {
     var offset_degrees = 135;
     var radius = Math.sqrt((robot_width/2) ** 2 + (robot_height/2) ** 2);
 
@@ -282,7 +273,7 @@
     var top_left_corner_y_coordinates = y_coordinate + radius * Math.sin((degrees_facing - offset_degrees) * Math.PI / 180);
 
     // Draw robot location rectangle
-    ctx_robot.fillStyle = "rgba(255, 255, 255, 0.7)";
+    ctx_robot.fillStyle = "rgba(255, 255, 255, 0.6)";
     ctx_robot.translate(top_left_corner_x_coordinates, top_left_corner_y_coordinates);
     ctx_robot.rotate(degrees_facing * Math.PI / 180);
     ctx_robot.fillRect(0, 0, robot_width, robot_height);
@@ -290,9 +281,25 @@
     // Draw robot direction triangle
     ctx_robot.fillStyle = "rgba(255, 0, 0, 0.7)";
     ctx_robot.beginPath();
-    ctx_robot.moveTo(robot_width/5, robot_width/5);
-    ctx_robot.lineTo(robot_width/2, 0);
-    ctx_robot.lineTo(robot_width * (4 / 5), robot_width/5);
+    ctx_robot.moveTo(robot_width * 0.2, robot_width/5);
+    ctx_robot.lineTo(robot_width * 0.5, 0);
+    ctx_robot.lineTo(robot_width * 0.8, robot_width/5);
+    ctx_robot.fill();
+
+    // Draw where robot sees with Infrared Receiver 700Hz
+    (see_700Hz_beacon) ? ctx_robot.fillStyle = "rgba(255, 255, 0, 0.6)" : ctx_robot.fillStyle = "rgba(255, 255, 0, 0.1)";
+    ctx_robot.beginPath();
+    ctx_robot.moveTo(robot_width * 0.2, 0);
+    ctx_robot.lineTo(robot_width * 0.5, -document.getElementById("canvas-background").clientWidth);
+    ctx_robot.lineTo(robot_width * 0.5, 0);
+    ctx_robot.fill();
+
+    // Draw where robot sees with Infrared Receiver 32Hz
+    (see_32Hz_beacon) ? ctx_robot.fillStyle = "rgba(0, 255, 0, 0.6)" : ctx_robot.fillStyle = "rgba(0, 255, 0, 0.1)";
+    ctx_robot.beginPath();
+    ctx_robot.moveTo(robot_width * 0.8, 0);
+    ctx_robot.lineTo(robot_width * 0.5, -document.getElementById("canvas-background").clientWidth);
+    ctx_robot.lineTo(robot_width * 0.5, 0);
     ctx_robot.fill();
    }
 
