@@ -293,42 +293,45 @@
     xhttp.send();
 
     // TEST RESPONSE - DELETE ONCE IMPLEMENTED
-    ESP_response = {
-      "status": "success",
-      "skip_setup": false,
-      "setup": {
-        "robot_width": 20,
-        "robot_height": 20,
-        "game_width": 366,
-        "game_height": 152
-      },
-      "robot": {
-        "x": 100,
-        "y": 50,
-        "degrees": 135 + Math.random() * 30
-      },
-      "IR_sensor": {
-        "beacon_700Hz": 1,
-        "beacon_32Hz": 0
-      },
-      "ToF_sensor": {
-        "distance": 20
-      },
-      "motors": {
-        "power": {
-          "front_left_A": 1.0,
-          "back_left_B": 0.3,
-          "front_right_C": 0.7,
-          "back_right_D": 1.0
+    if (ESP_response == "") {
+      ESP_response = {
+        "status": "success",
+        "skip_setup": false,
+        "setup": {
+          "robot_width": 20,
+          "robot_height": 20,
+          "game_width": 366,
+          "game_height": 152
         },
-        "direction": {
-          "front_left_A": 1,
-          "back_left_B": 1,
-          "front_right_C": 0,
-          "back_right_D": 1
+        "robot": {
+          "x": 100,
+          "y": 50,
+          "degrees": 135 + Math.random() * 30
+        },
+        "IR_sensor": {
+          "beacon_700Hz": 1,
+          "beacon_32Hz": 0
+        },
+        "ToF_sensor": {
+          "distance": 20
+        },
+        "motors": {
+          "power": {
+            "front_left_A": 1.0,
+            "back_left_B": 0.3,
+            "front_right_C": 0.7,
+            "back_right_D": 1.0
+          },
+          "direction": {
+            "front_left_A": 1,
+            "back_left_B": 1,
+            "front_right_C": 0,
+            "back_right_D": 1
+          }
         }
       }
     }
+    
 
     console.log(ESP_response);
 
