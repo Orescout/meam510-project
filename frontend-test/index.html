@@ -171,8 +171,11 @@
   <b>Key Pressed: </b>
   <span id="last_key_pressed_text"> </span> <br>
 
-  <b>Server Response: </b>
+  <b>Server Response from keys pressed: </b>
   <span id="response_text"> </span> <br>
+
+  <b>Raw JSON from ESP response: </b>
+  <span id="response_JSON"> </span> <br>
 
   <span class="arrowbtn arrowbtn-lookleft" id="arrow-lookleft"></span>
   <span class="arrowbtn arrowbtn-lookright" id="arrow-lookright"></span>
@@ -247,16 +250,15 @@
     }
   }
 
+  const scale_multiplier = 2.5;
   var robot_width = 50;
   var robot_height = 50;
   var canvas_already_setup = false;
-  const scale_multiplier = 2.5;
+  var delay_per_update_request = 1000;
 
   // Declare drawing objects
   var context_background = document.getElementById("canvas-background").getContext("2d");
   var context_robot = document.getElementById("canvas-robot").getContext("2d");
-
-  drawCanvasBackground();
 
   function drawCanvasBackground() {
     var h = document.getElementById("canvas-background").clientHeight;
@@ -275,7 +277,7 @@
   }
 
   // Repeat asking for updated state from ESP
-  let repeating_state_ask = setInterval(updateState, 1000);
+  let repeating_state_ask = setInterval(updateState, delay_per_update_request);
 
   // Ask for updated state from ESP
   function updateState() {
@@ -301,7 +303,8 @@
           "robot_width": 20,
           "robot_height": 20,
           "game_width": 366,
-          "game_height": 152
+          "game_height": 152,
+          "delay_per_update_request": 30 // BUG: Doesn't work!
         },
         "robot": {
           "x": 100,
@@ -347,7 +350,10 @@
       robot_width = ESP_response.setup.robot_width * scale_multiplier;
       robot_height = ESP_response.setup.robot_height * scale_multiplier;
 
+      delay_per_update_request = ESP_response.setup.delay_per_update_request;
+
       drawCanvasBackground();
+
       canvas_already_setup = true;
 
     } else if (ESP_response.status == "success") {
