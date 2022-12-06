@@ -281,63 +281,28 @@
 
   // Ask for updated state from ESP
   function updateState() {
-    var ESP_response = "";
+    let response = "";
+    let ESP_response = JSON.parse("{}");
     var xhttp = new XMLHttpRequest();
     var url = "get_updated_state";
 
     xhttp.onreadystatechange = function () {
       if (this.readyState == 4 && this.status == 200) {
-        ESP_response = this.responseText;
+        response = this.responseText;
+        //response = response.replaceAll("'", "\"");
+        // response = response.replaceAll(" ", "");
+        // ESP_response = JSON.stringify(response);
+        ESP_response = JSON.parse(ESP_response);
+        console.log(ESP_response);
+        console.log(ESP_response.success);
+        console.log(ESP_response.setup.game_width);
       }
     };
 
     xhttp.open("GET", url, true);
     xhttp.send();
 
-    // TEST RESPONSE - DELETE ONCE IMPLEMENTED
-    if (ESP_response == "") {
-      ESP_response = {
-        "status": "success",
-        "skip_setup": false,
-        "setup": {
-          "robot_width": 20,
-          "robot_height": 20,
-          "game_width": 366,
-          "game_height": 152,
-          "delay_per_update_request": 30 // BUG: Doesn't work!
-        },
-        "robot": {
-          "x": 100,
-          "y": 50,
-          "degrees": 135 + Math.random() * 30
-        },
-        "IR_sensor": {
-          "beacon_700Hz": 1,
-          "beacon_32Hz": 0
-        },
-        "ToF_sensor": {
-          "distance": 20
-        },
-        "motors": {
-          "power": {
-            "front_left_A": 1.0,
-            "back_left_B": 0.3,
-            "front_right_C": 0.7,
-            "back_right_D": 1.0
-          },
-          "direction": {
-            "front_left_A": 1,
-            "back_left_B": 1,
-            "front_right_C": 0,
-            "back_right_D": 1
-          }
-        }
-      }
-    }
     
-
-    console.log(ESP_response);
-
     if (!canvas_already_setup && !ESP_response.skip_setup) {
       // Perform setup - done once. We use the multiplier to go from cm to desired pixel sizes
 
