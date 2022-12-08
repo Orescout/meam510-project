@@ -281,57 +281,56 @@
 
   // Ask for updated state from ESP
   function updateState() {
-    let response = "";
-    let ESP_response = JSON.parse("{}");
+    var response = "";
+    var ESP_response = JSON.parse("{}");
     var xhttp = new XMLHttpRequest();
     var url = "get_updated_state";
 
     xhttp.onreadystatechange = function () {
       if (this.readyState == 4 && this.status == 200) {
         response = this.responseText;
-        //response = response.replaceAll("'", "\"");
-        // response = response.replaceAll(" ", "");
-        // ESP_response = JSON.stringify(response);
-        ESP_response = JSON.parse(ESP_response);
-        console.log(ESP_response);
-        console.log(ESP_response.success);
-        console.log(ESP_response.setup.game_width);
+        response = response.replace(/'/g, '"');
+        ESP_response = JSON.parse(response);
+        // console.log(ESP_response);
+        console.log(ESP_response.status);
+        // console.log(ESP_response.setup.game_width);
+
+        if (!canvas_already_setup && !ESP_response.skip_setup) {
+          // Perform setup - done once. We use the multiplier to go from cm to desired pixel sizes
+    
+          document.getElementById("canvas-background").width = ESP_response.setup.game_width * scale_multiplier;
+          document.getElementById("canvas-background").height = ESP_response.setup.game_height * scale_multiplier;
+    
+          document.getElementById("canvas-robot").width = ESP_response.setup.game_width * scale_multiplier;
+          document.getElementById("canvas-robot").height = ESP_response.setup.game_height * scale_multiplier;
+    
+          robot_width = ESP_response.setup.robot_width * scale_multiplier;
+          robot_height = ESP_response.setup.robot_height * scale_multiplier;
+    
+          delay_per_update_request = ESP_response.setup.delay_per_update_request;
+    
+          drawCanvasBackground();
+    
+          canvas_already_setup = true;
+    
+        } else if (ESP_response.status == "success") {
+          // update the state of the robot, by using the multiplier to go from cm to desired pixel sizes
+          updateRobotState(ESP_response.robot.x * scale_multiplier, ESP_response.robot.y * scale_multiplier, ESP_response.robot.degrees,
+            ESP_response.IR_sensor.beacon_700Hz, ESP_response.IR_sensor.beacon_32Hz,
+            ESP_response.ToF_sensor.distance * scale_multiplier,
+            ESP_response.motors.power.front_left_A, ESP_response.motors.power.back_left_B, ESP_response.motors.power.front_right_C, ESP_response.motors.power.back_right_D,
+            ESP_response.motors.direction.front_left_A, ESP_response.motors.direction.back_left_B, ESP_response.motors.direction.front_right_C, ESP_response.motors.direction.back_right_D);
+    
+        } else {
+          console.log("ERROR: NO RESPONSE FROM ESP32 RECEIVED!!!");
+        }
+        
       }
     };
 
     xhttp.open("GET", url, true);
     xhttp.send();
-
     
-    if (!canvas_already_setup && !ESP_response.skip_setup) {
-      // Perform setup - done once. We use the multiplier to go from cm to desired pixel sizes
-
-      document.getElementById("canvas-background").width = ESP_response.setup.game_width * scale_multiplier;
-      document.getElementById("canvas-background").height = ESP_response.setup.game_height * scale_multiplier;
-
-      document.getElementById("canvas-robot").width = ESP_response.setup.game_width * scale_multiplier;
-      document.getElementById("canvas-robot").height = ESP_response.setup.game_height * scale_multiplier;
-
-      robot_width = ESP_response.setup.robot_width * scale_multiplier;
-      robot_height = ESP_response.setup.robot_height * scale_multiplier;
-
-      delay_per_update_request = ESP_response.setup.delay_per_update_request;
-
-      drawCanvasBackground();
-
-      canvas_already_setup = true;
-
-    } else if (ESP_response.status == "success") {
-      // update the state of the robot, by using the multiplier to go from cm to desired pixel sizes
-      updateRobotState(ESP_response.robot.x * scale_multiplier, ESP_response.robot.y * scale_multiplier, ESP_response.robot.degrees,
-        ESP_response.IR_sensor.beacon_700Hz, ESP_response.IR_sensor.beacon_32Hz,
-        ESP_response.ToF_sensor.distance * scale_multiplier,
-        ESP_response.motors.power.front_left_A, ESP_response.motors.power.back_left_B, ESP_response.motors.power.front_right_C, ESP_response.motors.power.back_right_D,
-        ESP_response.motors.direction.front_left_A, ESP_response.motors.direction.back_left_B, ESP_response.motors.direction.front_right_C, ESP_response.motors.direction.back_right_D);
-
-    } else {
-      console.log("ERROR: NO RESPONSE FROM ESP32 RECEIVED!!!");
-    }
   }
 
   //moveRobot(100, 100, 110, 
