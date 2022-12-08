@@ -19,17 +19,17 @@ const char* password = "borabora";
 
 //motor movement control pins
 //FL
-#define MOTOR_A_GPIO_ONE 12
-#define MOTOR_A_GPIO_TWO 11
+#define MOTOR_A_GPIO_ONE 8
+#define MOTOR_A_GPIO_TWO 3
 //FR
-#define MOTOR_B_GPIO_ONE 14
-#define MOTOR_B_GPIO_TWO 13
+#define MOTOR_B_GPIO_ONE 10
+#define MOTOR_B_GPIO_TWO 9
 //BL
-#define MOTOR_C_GPIO_ONE 10
-#define MOTOR_C_GPIO_TWO 9
+#define MOTOR_C_GPIO_ONE 14
+#define MOTOR_C_GPIO_TWO 13
 //BR
-#define MOTOR_D_GPIO_ONE 3
-#define MOTOR_D_GPIO_TWO 8
+#define MOTOR_D_GPIO_ONE 12
+#define MOTOR_D_GPIO_TWO 11
 
 //encoder pins
 #define ENCODER_GPIO_A 1
@@ -39,10 +39,10 @@ const char* password = "borabora";
 
 //intitial direction of motors
 //1 is CW, 0 is CCW
-#define DIRECTION_A 0
+#define DIRECTION_A 1
 #define DIRECTION_B 1
-#define DIRECTION_C 0
-#define DIRECTION_D 1
+#define DIRECTION_C 1
+#define DIRECTION_D 0
 
 //PWM setup
 #define PWM_RES 12
@@ -57,6 +57,9 @@ float tick = 0.0;
 //PID setup
 #define Kp .05
 #define Ki 1.1
+
+#define ROBOT_WIDTH 27
+#define ROBOT_HEIGHT 28
 
 class Motor
 {
@@ -158,6 +161,16 @@ public:
             digitalWrite(this->move_gpio_one, LOW);
         }
     }
+
+    int getDirection() {
+        // TODO: READ DIRECTION
+        return 0;
+    }
+
+    int getSpeed() {
+        // TODO: READ SPEED
+        return 0;
+    }
 };
 
 // Creating all the motor objects
@@ -256,48 +269,45 @@ void handleStateUpdate(){
   StaticJsonBuffer<300> JSONbuffer;
   JsonObject& JSONencoder = JSONbuffer.createObject();
 
-  String response_json = "{\"success\":\"yes\"}";
-
-  // String response_json = "{  \
-  //       'status': 'success', \
-  //       'skip_setup': false, \
-  //       'setup': { \
-  //         'robot_width': 20, \
-  //         'robot_height': 20, \
-  //         'game_width': 366, \
-  //         'game_height': 152, \
-  //         'delay_per_update_request': 30 \
-  //       }, \
-  //       'robot': { \
-  //         'x': 100, \
-  //         'y': 50, \
-  //         'degrees': 135 \
-  //       }, \
-  //       'IR_sensor': { \
-  //         'beacon_700Hz': 1, \
-  //         'beacon_32Hz': 0 \
-  //       }, \
-  //       'ToF_sensor': { \
-  //         'distance': [20], \
-  //         'degrees': [0], \
-  //         'time': [0] \
-  //       }, \
-  //       'motors': { \
-  //         'power': { \
-  //           'front_left_A': 1.0, \
-  //           'back_left_B': 0.3, \
-  //           'front_right_C': 0.7, \
-  //           'back_right_D': 1.0 \
-  //         }, \
-  //         'direction': { \
-  //           'front_left_A': 1, \
-  //           'back_left_B': 1, \
-  //           'front_right_C': 0, \
-  //           'back_right_D': 1 \
-  //         } \
-  //       } \
-  //     } \
-  //   }";
+  String response_json = "{  \
+        'status': 'success', \
+        'skip_setup': false, \
+        'setup': { \
+          'robot_width': " + String(ROBOT_WIDTH) + ", \
+          'robot_height': " + String(ROBOT_HEIGHT) + ", \
+          'game_width': 366, \
+          'game_height': 152, \
+          'delay_per_update_request': 30 \
+        }, \
+        'robot': { \
+          'x': 100, \
+          'y': 50, \
+          'degrees': 135 \
+        }, \
+        'IR_sensor': { \
+          'beacon_700Hz': 1, \
+          'beacon_32Hz': 0 \
+        }, \
+        'ToF_sensor': { \
+          'distance': [20], \
+          'degrees': [0], \
+          'time': [0] \
+        }, \
+        'motors': { \
+          'power': { \
+            'front_left_A': " + String(motorFrontLeftA.getSpeed()) + ", \
+            'back_left_B': 0.3, \
+            'front_right_C': 0.7, \
+            'back_right_D': 1.0 \
+          }, \
+          'direction': { \
+            'front_left_A': " + String(motorFrontLeftA.getDirection()) + ", \
+            'back_left_B': 1, \
+            'front_right_C': 0, \
+            'back_right_D': 1 \
+          } \
+        } \
+      }";
 
   Serial.print("Sending to web this: ");
   Serial.println(response_json);
@@ -352,7 +362,7 @@ void drive(int move_degrees, int look_direction, int speed) {
 
     case 45: // NE
       setAllDirections(1, 1, 1, 1);
-      setAllMotorSpeeds(0, speed, speed, 0);
+      setAllMotorSpeeds(speed, 0, 0, speed);
       Serial.println("45 degrees: MOVE NE");
       break;
 
@@ -364,7 +374,7 @@ void drive(int move_degrees, int look_direction, int speed) {
       
     case 135: // SE
       setAllDirections(0, 0, 0, 0);
-      setAllMotorSpeeds(speed, 0, 0, speed);
+      setAllMotorSpeeds(0, speed, speed, 0);
       Serial.println("135 degrees: MOVE SE");
       break;
 
@@ -376,7 +386,7 @@ void drive(int move_degrees, int look_direction, int speed) {
 
     case 225: // SW
       setAllDirections(0, 0, 0, 0);
-      setAllMotorSpeeds(0, speed, speed, 0);
+      setAllMotorSpeeds(speed, 0, 0, speed);
       Serial.println("225 degrees: MOVE SW");
       break;
 
@@ -388,7 +398,7 @@ void drive(int move_degrees, int look_direction, int speed) {
 
     case 315: // NW
       setAllDirections(1, 1, 1, 1);
-      setAllMotorSpeeds(speed, 0, 0, speed);
+      setAllMotorSpeeds(0, speed, speed, 0);
       Serial.println("315 degrees: MOVE NW");
       break;
   }
@@ -410,7 +420,7 @@ void setup() {
 
   h.attachHandler("/ ", handleRoot);
   h.attachHandler("/key_pressed?val=", handleKeyPressed);
-  h.attachHandler("/get_updated_state", handleStateUpdate);
+  // h.attachHandler("/get_updated_state", handleStateUpdate);
 }
 
 void loop() {
