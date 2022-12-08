@@ -250,6 +250,61 @@ void handleKeyPressed(){
   drive(move_degrees, look_direction, current_speed);
 }
 
+void handleStateUpdate(){
+
+  // Construct JSON to send to frontend
+  StaticJsonBuffer<300> JSONbuffer;
+  JsonObject& JSONencoder = JSONbuffer.createObject();
+
+  String response_json = "{\"success\":\"yes\"}";
+
+  // String response_json = "{  \
+  //       'status': 'success', \
+  //       'skip_setup': false, \
+  //       'setup': { \
+  //         'robot_width': 20, \
+  //         'robot_height': 20, \
+  //         'game_width': 366, \
+  //         'game_height': 152, \
+  //         'delay_per_update_request': 30 \
+  //       }, \
+  //       'robot': { \
+  //         'x': 100, \
+  //         'y': 50, \
+  //         'degrees': 135 \
+  //       }, \
+  //       'IR_sensor': { \
+  //         'beacon_700Hz': 1, \
+  //         'beacon_32Hz': 0 \
+  //       }, \
+  //       'ToF_sensor': { \
+  //         'distance': [20], \
+  //         'degrees': [0], \
+  //         'time': [0] \
+  //       }, \
+  //       'motors': { \
+  //         'power': { \
+  //           'front_left_A': 1.0, \
+  //           'back_left_B': 0.3, \
+  //           'front_right_C': 0.7, \
+  //           'back_right_D': 1.0 \
+  //         }, \
+  //         'direction': { \
+  //           'front_left_A': 1, \
+  //           'back_left_B': 1, \
+  //           'front_right_C': 0, \
+  //           'back_right_D': 1 \
+  //         } \
+  //       } \
+  //     } \
+  //   }";
+
+  Serial.print("Sending to web this: ");
+  Serial.println(response_json);
+
+  h.sendplain(response_json);
+}
+
 void setAllDirections(int direction_A, int direction_B, int direction_C, int direction_D) {
   motorFrontLeftA.setDirection(direction_A);
   motorBackLeftB.setDirection(direction_B);
@@ -355,6 +410,7 @@ void setup() {
 
   h.attachHandler("/ ", handleRoot);
   h.attachHandler("/key_pressed?val=", handleKeyPressed);
+  h.attachHandler("/get_updated_state", handleStateUpdate);
 }
 
 void loop() {
