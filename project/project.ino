@@ -5,8 +5,6 @@
 
 HTML510Server h(80);
 
-// https://medesign.seas.upenn.edu/index.php/Guides/ESP32-pins
-
 // Wifi
 const char* ssid = "TEAM HAWAII WIFI";
 const char* password = "borabora";
@@ -58,9 +56,14 @@ float tick = 0.0;
 #define Kp .05
 #define Ki 1.1
 
+#define INFRARED_RECEIVER_700HZ_GPIO 4
+#define INFRARED_RECEIVER_23HZ_GPIO 5
+
+// Setup constants
 #define ROBOT_WIDTH 27
 #define ROBOT_HEIGHT 28
 
+// Class for our Motors
 class Motor
 {
 private:
@@ -176,50 +179,71 @@ private:
     }
 };
 
-// Creating all the motor objects
-Motor motorFrontLeftA(PWM_CH_A, MOTOR_A_GPIO_ONE, MOTOR_A_GPIO_TWO, ENCODER_GPIO_A, DIRECTION_A);
-Motor motorBackLeftB(PWM_CH_B, MOTOR_B_GPIO_ONE, MOTOR_B_GPIO_TWO, ENCODER_GPIO_B, DIRECTION_B);
-Motor motorFrontRightC(PWM_CH_C, MOTOR_C_GPIO_ONE, MOTOR_C_GPIO_TWO, ENCODER_GPIO_C, DIRECTION_C);
-Motor motorBackRightD(PWM_CH_D, MOTOR_D_GPIO_ONE, MOTOR_D_GPIO_TWO, ENCODER_GPIO_D, DIRECTION_D);
+// Class for our Infrared receivers
+class InfraredReceiver
+{
+private:
+  int hertz;
+  int gpio;
+  int see_something;
 
-// // Class for Infrared receiver
+public:
+  InfraredReceiver(int hertz, int gpio)
+  {
+        this->hertz = hertz;
+        this->gpio = gpio;
 
-// class InfraredReceiver
-// {
-// private:
-//   int hertz;
-//   int gpio;
-//   int see_something;
+        init();
+  }
+    void init()
+    {
+        this->see_something = 0;
 
-// public:
-//   InfraredReceiver(int hertz, int gpio)
-//   {
-//         this->hertz = hertz;
-//         this->gpio = gpio;
-//         this->see_something = 0;
+        // Set GPIO pin
+        // TODO: JD
+    }
 
-//     }
-//     void init()
-//     {
-//         this->see_something = 0;
+    int read()
+    {
+        // TODO: JD
+        // this->see_something = digitalRead(this->gpio);
+        return this->see_something;
+    }
+};
 
-//         // Set GPIO pin
-//         // TODO: JD
-//     }
+// Class for our Time Of Flight distance sensors
+class TimeOfFlight
+{
+private:
+  int degrees_pointing;
+  int gpio;
+  int distance;
+  float distance_to_cm_multiplier;
 
-//         // calculates velocity using how many slots have moved in the time interval
-//     int get()
-//     {
-//         int vel = this->curr_slot - this->old_slot;
-//         this->old_slot = this->curr_slot;
-//         return vel;
-//     }
+public:
+  TimeOfFlight(int degrees_pointing, int gpio, int distance_to_cm_multiplier)
+  {
+        this->degrees_pointing = degrees_pointing;
+        this->gpio = gpio;
+        this->distance_to_cm_multiplier = distance_to_cm_multiplier;
 
+        init();
+  }
+    void init()
+    {
+        this->distance = 0;
 
+        // Set GPIO pins
+        // TODO: JD
+    }
 
- 
-// };
-
+    int read()
+    {
+        // TODO: JD
+        // this->distance = digitalRead(gpio);
+        return this->distance * distance_to_cm_multiplier;
+    }
+};
 
 void println(int x) {
   Serial.println(x);
@@ -326,8 +350,8 @@ void handleStateUpdate(){
           'degrees': 0 \
         }, \
         'IR_sensor': { \
-          'beacon_700Hz': 1, \
-          'beacon_32Hz': 0 \
+          'beacon_700Hz': " + String(InfraredReceiver700Hz.read()) + ", \
+          'beacon_23Hz': " + String(InfraredReceiver23Hz.read()) + " \
         }, \
         'ToF_sensor': { \
           'distance': [20], \
@@ -446,6 +470,16 @@ void drive(int move_degrees, int look_direction, int speed) {
       break;
   }
 }
+
+Motor motorFrontLeftA(PWM_CH_A, MOTOR_A_GPIO_ONE, MOTOR_A_GPIO_TWO, ENCODER_GPIO_A, DIRECTION_A);
+Motor motorBackLeftB(PWM_CH_B, MOTOR_B_GPIO_ONE, MOTOR_B_GPIO_TWO, ENCODER_GPIO_B, DIRECTION_B);
+Motor motorFrontRightC(PWM_CH_C, MOTOR_C_GPIO_ONE, MOTOR_C_GPIO_TWO, ENCODER_GPIO_C, DIRECTION_C);
+Motor motorBackRightD(PWM_CH_D, MOTOR_D_GPIO_ONE, MOTOR_D_GPIO_TWO, ENCODER_GPIO_D, DIRECTION_D);
+
+InfraredReceiver InfraredReceiver700Hz(700, INFRARED_RECEIVER_700HZ_GPIO);
+InfraredReceiver InfraredReceiver23Hz(23, INFRARED_RECEIVER_23HZ_GPIO);
+
+// TimeOfFlight TimeOfFlightDegrees0(0, 2, 0.03);
 
 void setup() {
   Serial.begin(115200);
