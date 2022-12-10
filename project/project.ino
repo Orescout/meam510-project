@@ -74,8 +74,9 @@ private:
     int curr_slot;
     int old_slot;
     float integration_sum_PID;
+    int current_direction;
 
-public:
+  public:
     Motor(int pwm_channel, int move_gpio_one, int move_gpio_two, int encoder_gpio, int direction)
     {
         this->pwm_channel = pwm_channel;
@@ -100,8 +101,7 @@ public:
         this->integration_sum_PID = 0;
     }
 
-    
-    // calculates velocity using how many slots have moved in the time interval
+        // calculates velocity using how many slots have moved in the time interval
     int getVel()
     {
         int vel = this->curr_slot - this->old_slot;
@@ -139,37 +139,40 @@ public:
 
     void setDirection(int forward)
     {
-        // set the direction that the motors moves
-        if (forward == this->direction)
-        {
-            // Move Forward: setting pin one to be the PWM pin
-            ledcAttachPin(this->move_gpio_one, this->pwm_channel);
-            ledcSetup(this->pwm_channel, PWM_FREQ, PWM_RES);
-    
-            // setting the other gpio (pin two) to be grounded
-            pinMode(this->move_gpio_two, OUTPUT);
-            digitalWrite(this->move_gpio_two, LOW);
-        }
-        else
-        {
-            // Move Backward: setting pin two to be the PWM pin
-            ledcAttachPin(this->move_gpio_two, this->pwm_channel);
-            ledcSetup(this->pwm_channel, PWM_FREQ, PWM_RES);
-    
-            // setting the other gpio (pin one) to be grounded
-            pinMode(this->move_gpio_one, OUTPUT);
-            digitalWrite(this->move_gpio_one, LOW);
-        }
+      // Store current direction
+      this->current_direction = forward;
+
+      // set the direction that the motors moves
+      if (forward == this->direction)
+      { // FORWARD
+        // Setting pin one to be the PWM pin
+        ledcAttachPin(this->move_gpio_one, this->pwm_channel);
+        ledcSetup(this->pwm_channel, PWM_FREQ, PWM_RES);
+
+        // setting the other gpio (pin two) to be grounded
+        pinMode(this->move_gpio_two, OUTPUT);
+        digitalWrite(this->move_gpio_two, LOW);
+      }
+      else
+      { // BACKWARD
+        // Move Backward: setting pin two to be the PWM pin
+        ledcAttachPin(this->move_gpio_two, this->pwm_channel);
+        ledcSetup(this->pwm_channel, PWM_FREQ, PWM_RES);
+
+        // setting the other gpio (pin one) to be grounded
+        pinMode(this->move_gpio_one, OUTPUT);
+        digitalWrite(this->move_gpio_one, LOW);
+      }
     }
 
     int getDirection() {
         // TODO: READ DIRECTION
-        return 0;
+        return this->current_direction;
     }
 
     int getSpeed() {
         // TODO: READ SPEED
-        return 0;
+        return ledcRead(this->pwm_channel);
     }
 };
 
@@ -178,6 +181,45 @@ Motor motorFrontLeftA(PWM_CH_A, MOTOR_A_GPIO_ONE, MOTOR_A_GPIO_TWO, ENCODER_GPIO
 Motor motorBackLeftB(PWM_CH_B, MOTOR_B_GPIO_ONE, MOTOR_B_GPIO_TWO, ENCODER_GPIO_B, DIRECTION_B);
 Motor motorFrontRightC(PWM_CH_C, MOTOR_C_GPIO_ONE, MOTOR_C_GPIO_TWO, ENCODER_GPIO_C, DIRECTION_C);
 Motor motorBackRightD(PWM_CH_D, MOTOR_D_GPIO_ONE, MOTOR_D_GPIO_TWO, ENCODER_GPIO_D, DIRECTION_D);
+
+// // Class for Infrared receiver
+
+// class InfraredReceiver
+// {
+// private:
+//   int hertz;
+//   int gpio;
+//   int see_something;
+
+// public:
+//   InfraredReceiver(int hertz, int gpio)
+//   {
+//         this->hertz = hertz;
+//         this->gpio = gpio;
+//         this->see_something = 0;
+
+//     }
+//     void init()
+//     {
+//         this->see_something = 0;
+
+//         // Set GPIO pin
+//         // TODO: JD
+//     }
+
+//         // calculates velocity using how many slots have moved in the time interval
+//     int get()
+//     {
+//         int vel = this->curr_slot - this->old_slot;
+//         this->old_slot = this->curr_slot;
+//         return vel;
+//     }
+
+
+
+ 
+// };
+
 
 void println(int x) {
   Serial.println(x);
@@ -276,13 +318,12 @@ void handleStateUpdate(){
           'robot_width': " + String(ROBOT_WIDTH) + ", \
           'robot_height': " + String(ROBOT_HEIGHT) + ", \
           'game_width': 366, \
-          'game_height': 152, \
-          'delay_per_update_request': 30 \
+          'game_height': 152 \
         }, \
         'robot': { \
           'x': 100, \
           'y': 50, \
-          'degrees': 135 \
+          'degrees': 0 \
         }, \
         'IR_sensor': { \
           'beacon_700Hz': 1, \
@@ -296,18 +337,20 @@ void handleStateUpdate(){
         'motors': { \
           'power': { \
             'front_left_A': " + String(motorFrontLeftA.getSpeed()) + ", \
-            'back_left_B': 0.3, \
-            'front_right_C': 0.7, \
-            'back_right_D': 1.0 \
+            'back_left_B': " + String(motorBackLeftB.getSpeed()) + ", \
+            'front_right_C': " + String(motorFrontRightC.getSpeed()) + ", \
+            'back_right_D': " + String(motorBackRightD.getSpeed()) + " \
           }, \
           'direction': { \
             'front_left_A': " + String(motorFrontLeftA.getDirection()) + ", \
-            'back_left_B': 1, \
-            'front_right_C': 0, \
-            'back_right_D': 1 \
+            'back_left_B': " + String(motorBackLeftB.getDirection()) + ", \
+            'front_right_C': " + String(motorFrontRightC.getDirection()) + ", \
+            'back_right_D': " + String(motorBackRightD.getDirection()) + " \
           } \
         } \
       }";
+
+  response_json.replace(" ", "");
 
   Serial.print("Sending to web this: ");
   Serial.println(response_json);
@@ -405,7 +448,7 @@ void drive(int move_degrees, int look_direction, int speed) {
 }
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   
   Serial.print("Access Point SSID: "); Serial.print(ssid);
   WiFi.mode(WIFI_AP); // Set Mode to Access Point
@@ -420,7 +463,7 @@ void setup() {
 
   h.attachHandler("/ ", handleRoot);
   h.attachHandler("/key_pressed?val=", handleKeyPressed);
-  // h.attachHandler("/get_updated_state", handleStateUpdate);
+  h.attachHandler("/get_updated_state", handleStateUpdate);
 }
 
 void loop() {
