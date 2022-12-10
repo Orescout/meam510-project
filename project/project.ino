@@ -29,6 +29,14 @@ const char* password = "borabora";
 #define MOTOR_D_GPIO_ONE 12
 #define MOTOR_D_GPIO_TWO 11
 
+#define INFRARED_RECEIVER_700HZ_GPIO 4 // TODO: JD
+#define INFRARED_RECEIVER_23HZ_GPIO 5 // TODO: JD
+
+#define VIVE_RIGHT_GPIO 7 // TODO: Sophie
+#define VIVE_LEFT_GPIO 6 // TODO: Sophie
+
+#define TIME_OF_FLIGHT_0_DEGREES 6 // TODO: JD
+
 //encoder pins
 #define ENCODER_GPIO_A 1
 #define ENCODER_GPIO_B 2
@@ -55,9 +63,6 @@ float tick = 0.0;
 //PID setup
 #define Kp .05
 #define Ki 1.1
-
-#define INFRARED_RECEIVER_700HZ_GPIO 4
-#define INFRARED_RECEIVER_23HZ_GPIO 5
 
 // Setup constants
 #define ROBOT_WIDTH 27
@@ -245,6 +250,49 @@ public:
     }
 };
 
+// Class for our Vive sensors
+class ViveSensor
+{
+private:
+  int right;
+  int gpio;
+  
+public:
+  ViveSensor(int right, int gpio)
+  {
+    this->right = right;
+    this->gpio = gpio;
+
+    init();
+  }
+    void init()
+    {
+      // Set GPIO pins
+      // TODO: Sophie
+    }
+
+    int translateX(int x){
+      // TODO: Sophie
+      return 0;
+    }
+
+    int translateY(int y){
+      // TODO: Sophie
+      return 0;
+    }
+
+    int getX()
+    {
+      // TODO: Sophie
+      return 0;
+    }
+
+    int getY() {
+      // TODO: Sophie
+      return 0;
+    }
+};
+
 void println(int x) {
   Serial.println(x);
 }
@@ -345,9 +393,9 @@ void handleStateUpdate(){
           'game_height': 152 \
         }, \
         'robot': { \
-          'x': 100, \
-          'y': 50, \
-          'degrees': 0 \
+          'x': 100, " + String(getRobotCoordinateX(ViveRight, ViveLeft)) + " \
+          'y': 50, " + String(getRobotCoordinateY(ViveRight, ViveLeft)) + " \
+          'degrees': " + String(getRobotOrientationDegrees(ViveRight, ViveLeft)) + " \
         }, \
         'IR_sensor': { \
           'beacon_700Hz': " + String(InfraredReceiver700Hz.read()) + ", \
@@ -471,6 +519,24 @@ void drive(int move_degrees, int look_direction, int speed) {
   }
 }
 
+int getRobotOrientationDegrees(ViveSensor ViveRight, ViveSensor ViveLeft)
+{
+  // TODO: Sophie
+  return 0;
+}
+
+int getRobotCoordinateX(ViveSensor ViveRight, ViveSensor ViveLeft)
+{
+  // TODO: Sophie
+  return 0;
+}
+
+int getRobotCoordinateY(ViveSensor ViveRight, ViveSensor ViveLeft)
+{
+  // TODO: Sophie
+  return 0;
+}
+
 Motor motorFrontLeftA(PWM_CH_A, MOTOR_A_GPIO_ONE, MOTOR_A_GPIO_TWO, ENCODER_GPIO_A, DIRECTION_A);
 Motor motorBackLeftB(PWM_CH_B, MOTOR_B_GPIO_ONE, MOTOR_B_GPIO_TWO, ENCODER_GPIO_B, DIRECTION_B);
 Motor motorFrontRightC(PWM_CH_C, MOTOR_C_GPIO_ONE, MOTOR_C_GPIO_TWO, ENCODER_GPIO_C, DIRECTION_C);
@@ -479,7 +545,10 @@ Motor motorBackRightD(PWM_CH_D, MOTOR_D_GPIO_ONE, MOTOR_D_GPIO_TWO, ENCODER_GPIO
 InfraredReceiver InfraredReceiver700Hz(700, INFRARED_RECEIVER_700HZ_GPIO);
 InfraredReceiver InfraredReceiver23Hz(23, INFRARED_RECEIVER_23HZ_GPIO);
 
-// TimeOfFlight TimeOfFlightDegrees0(0, 2, 0.03);
+ViveSensor ViveRight(1, VIVE_RIGHT_GPIO);
+ViveSensor ViveLeft(0, VIVE_LEFT_GPIO);
+
+TimeOfFlight TimeOfFlightDegrees0(0, 2, 0.03);
 
 void setup() {
   Serial.begin(115200);
