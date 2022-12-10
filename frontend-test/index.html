@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html>
 
+<!DOCTYPE html>
+<html>
+
 <head>
   <style>
     /* Inspired by https://codepen.io/HJ-b/pen/jbPqWO */
@@ -193,7 +196,7 @@
 
 <script>
 
-  function toggleColor(element_ID, condition) {
+  async function toggleColor(element_ID, condition) {
     if (condition) { // ON
       document.getElementById(element_ID).style.background = "rgba(255, 255, 255, 1)";
     } else { // OFF
@@ -201,12 +204,12 @@
     }
   }
 
-  function setSpeed(speed) {
+  async function setSpeed(speed) {
     document.getElementById("speed_slider").value = speed;
     document.getElementById("speed_display_text").innerHTML = speed.toString();
   }
 
-  function sendToESP(text) {
+  async function sendToESP(text) {
     var xhttp = new XMLHttpRequest();
     var url = "key_pressed?val=" + text;
 
@@ -223,7 +226,7 @@
 
   var map = {}; // You could also use an array
 
-  onkeydown = onkeyup = function (e) {
+  onkeydown = onkeyup = async function (e) {
     e = e || event; // to deal with IE
     previousMapString = JSON.stringify(map); // save the previous map
     map[e.keyCode] = e.type == 'keydown'; // mark true the index of any key that's pressed.
@@ -254,13 +257,13 @@
   var robot_width = 50;
   var robot_height = 50;
   var canvas_already_setup = false;
-  var delay_per_update_request = 1000;
+  var delay_per_update_request = 100;
 
   // Declare drawing objects
   var context_background = document.getElementById("canvas-background").getContext("2d");
   var context_robot = document.getElementById("canvas-robot").getContext("2d");
 
-  function drawCanvasBackground() {
+  async function drawCanvasBackground() {
     var h = document.getElementById("canvas-background").clientHeight;
     var w = document.getElementById("canvas-background").clientWidth;
 
@@ -280,58 +283,60 @@
   let repeating_state_ask = setInterval(updateState, delay_per_update_request);
 
   // Ask for updated state from ESP
-  function updateState() {
-    var response = "";
-    var ESP_response = JSON.parse("{}");
+  async function updateState() {
     var xhttp = new XMLHttpRequest();
-    var url = "get_updated_state";
+    xhttp.open("GET", "get_updated_state", true);
+    xhttp.onload = (e) => {
+      if (xhttp.readyState === 4) {
+        if (xhttp.status === 200) {
+          
+          // EXECUTE THIS WHEN SUCCESSFUL RESPONSE!
+          var response = xhttp.responseText;
+          response = response.replace(/'/g, '"');
+          var ESP_response = JSON.parse(response);
+          console.log(ESP_response);
+          // console.log("Updating Frontend");
+          // console.log(ESP_response.setup.game_width);
 
-    xhttp.onreadystatechange = function () {
-      if (this.readyState == 4 && this.status == 200) {
-        response = this.responseText;
-        response = response.replace(/'/g, '"');
-        ESP_response = JSON.parse(response);
-        // console.log(ESP_response);
-        console.log(ESP_response.status);
-        // console.log(ESP_response.setup.game_width);
+          if (!canvas_already_setup && !ESP_response.skip_setup) {
+            // Perform setup - done once. We use the multiplier to go from cm to desired pixel sizes
+      
+            document.getElementById("canvas-background").width = ESP_response.setup.game_width * scale_multiplier;
+            document.getElementById("canvas-background").height = ESP_response.setup.game_height * scale_multiplier;
+      
+            document.getElementById("canvas-robot").width = ESP_response.setup.game_width * scale_multiplier;
+            document.getElementById("canvas-robot").height = ESP_response.setup.game_height * scale_multiplier;
+      
+            robot_width = ESP_response.setup.robot_width * scale_multiplier;
+            robot_height = ESP_response.setup.robot_height * scale_multiplier;
+            
+            drawCanvasBackground();
+      
+            canvas_already_setup = true;
+      
+          } else if (ESP_response.status == "success") {
+            // update the state of the robot, by using the multiplier to go from cm to desired pixel sizes
+            updateRobotState(ESP_response.robot.x * scale_multiplier, ESP_response.robot.y * scale_multiplier, ESP_response.robot.degrees,
+              ESP_response.IR_sensor.beacon_700Hz, ESP_response.IR_sensor.beacon_32Hz,
+              ESP_response.ToF_sensor.distance * scale_multiplier,
+              ESP_response.motors.power.front_left_A, ESP_response.motors.power.back_left_B, ESP_response.motors.power.front_right_C, ESP_response.motors.power.back_right_D,
+              ESP_response.motors.direction.front_left_A, ESP_response.motors.direction.back_left_B, ESP_response.motors.direction.front_right_C, ESP_response.motors.direction.back_right_D);
+      
+          } else {
+            console.log("ERROR: NO RESPONSE FROM ESP32 RECEIVED!!!");
+          }
 
-        if (!canvas_already_setup && !ESP_response.skip_setup) {
-          // Perform setup - done once. We use the multiplier to go from cm to desired pixel sizes
-    
-          document.getElementById("canvas-background").width = ESP_response.setup.game_width * scale_multiplier;
-          document.getElementById("canvas-background").height = ESP_response.setup.game_height * scale_multiplier;
-    
-          document.getElementById("canvas-robot").width = ESP_response.setup.game_width * scale_multiplier;
-          document.getElementById("canvas-robot").height = ESP_response.setup.game_height * scale_multiplier;
-    
-          robot_width = ESP_response.setup.robot_width * scale_multiplier;
-          robot_height = ESP_response.setup.robot_height * scale_multiplier;
-    
-          delay_per_update_request = ESP_response.setup.delay_per_update_request;
-    
-          drawCanvasBackground();
-    
-          canvas_already_setup = true;
-    
-        } else if (ESP_response.status == "success") {
-          // update the state of the robot, by using the multiplier to go from cm to desired pixel sizes
-          updateRobotState(ESP_response.robot.x * scale_multiplier, ESP_response.robot.y * scale_multiplier, ESP_response.robot.degrees,
-            ESP_response.IR_sensor.beacon_700Hz, ESP_response.IR_sensor.beacon_32Hz,
-            ESP_response.ToF_sensor.distance * scale_multiplier,
-            ESP_response.motors.power.front_left_A, ESP_response.motors.power.back_left_B, ESP_response.motors.power.front_right_C, ESP_response.motors.power.back_right_D,
-            ESP_response.motors.direction.front_left_A, ESP_response.motors.direction.back_left_B, ESP_response.motors.direction.front_right_C, ESP_response.motors.direction.back_right_D);
-    
         } else {
-          console.log("ERROR: NO RESPONSE FROM ESP32 RECEIVED!!!");
+          console.error(xhttp.statusText);
         }
-        
       }
     };
-
-    xhttp.open("GET", url, true);
-    xhttp.send();
+    xhttp.onerror = (e) => {
+      console.error(xhttp.statusText);
+    }
+    xhttp.send(null);
     
-  }
+  };
 
   //moveRobot(100, 100, 110, 
   //              1, 1,
@@ -339,7 +344,7 @@
   //              1.0, 1.0, 1.0, 0.3,
   //              1, 1, 1, 0);
 
-  function updateRobotState(x_coordinate, y_coordinate, degrees_facing, see_700Hz_beacon, see_32Hz_beacon, distance,
+  async function updateRobotState(x_coordinate, y_coordinate, degrees_facing, see_700Hz_beacon, see_32Hz_beacon, distance,
     motor_power_A, motor_power_B, motor_power_C, motor_power_D,
     motor_dir_A, motor_dir_B, motor_dir_C, motor_dir_D) {
     // reset canvas
