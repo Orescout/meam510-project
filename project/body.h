@@ -319,7 +319,7 @@ const char body[] PROGMEM = R"===(
           } else if (ESP_response.status == "success") {
             // update the state of the robot, by using the multiplier to go from cm to desired pixel sizes
             updateRobotState(ESP_response.robot.x * scale_multiplier, ESP_response.robot.y * scale_multiplier, ESP_response.robot.degrees,
-              ESP_response.IR_sensor.beacon_700Hz, ESP_response.IR_sensor.beacon_32Hz,
+              ESP_response.IR_sensor.beacon_700Hz, ESP_response.IR_sensor.beacon_23Hz,
               ESP_response.ToF_sensor.distance * scale_multiplier,
               ESP_response.motors.power.front_left_A, ESP_response.motors.power.back_left_B, ESP_response.motors.power.front_right_C, ESP_response.motors.power.back_right_D,
               ESP_response.motors.direction.front_left_A, ESP_response.motors.direction.back_left_B, ESP_response.motors.direction.front_right_C, ESP_response.motors.direction.back_right_D);
@@ -346,7 +346,7 @@ const char body[] PROGMEM = R"===(
   //              1.0, 1.0, 1.0, 0.3,
   //              1, 1, 1, 0);
 
-  async function updateRobotState(x_coordinate, y_coordinate, degrees_facing, see_700Hz_beacon, see_32Hz_beacon, distance,
+  async function updateRobotState(x_coordinate, y_coordinate, degrees_facing, see_700Hz_beacon, see_23Hz_beacon, distance,
     motor_power_A, motor_power_B, motor_power_C, motor_power_D,
     motor_dir_A, motor_dir_B, motor_dir_C, motor_dir_D) {
     // reset canvas
@@ -382,8 +382,8 @@ const char body[] PROGMEM = R"===(
     context_robot.lineTo(robot_width * 0.5, 0);
     context_robot.fill();
 
-    // Draw where robot sees with Infrared Receiver 32Hz
-    (see_32Hz_beacon) ? context_robot.fillStyle = "rgba(0, 255, 0, 0.6)" : context_robot.fillStyle = "rgba(0, 255, 0, 0.1)";
+    // Draw where robot sees with Infrared Receiver 23Hz
+    (see_23Hz_beacon) ? context_robot.fillStyle = "rgba(0, 255, 0, 0.6)" : context_robot.fillStyle = "rgba(0, 255, 0, 0.1)";
     context_robot.beginPath();
     context_robot.moveTo(robot_width * 0.8, 0);
     context_robot.lineTo(robot_width * 0.6, -document.getElementById("canvas-background").clientWidth);
