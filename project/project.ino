@@ -39,8 +39,8 @@ SFEVL53L1X distanceSensor;
 #define MOTOR_D_GPIO_ONE 12
 #define MOTOR_D_GPIO_TWO 11
 
-#define INFRARED_RECEIVER_700HZ_GPIO 4 // TODO: JD
-#define INFRARED_RECEIVER_23HZ_GPIO 5  // TODO: JD
+#define INFRARED_RECEIVER_RIGHT_GPIO 4 // TODO: JD
+#define INFRARED_RECEIVER_LEFT_GPIO 5  // TODO: JD
 
 #define VIVE_RIGHT_GPIO 7 // TODO: Sophie
 #define VIVE_LEFT_GPIO 6  // TODO: Sophie
@@ -205,31 +205,34 @@ Motor motorBackRightD(PWM_CH_D, MOTOR_D_GPIO_ONE, MOTOR_D_GPIO_TWO, ENCODER_GPIO
 class InfraredReceiver
 {
 private:
-  int hertz;
-  int gpio;
-  int see_something;
+  int gpio_right;
+  int gpio_left;
 
 public:
-  InfraredReceiver(int hertz, int gpio)
+  InfraredReceiver(int gpio_right, int gpio_left)
   {
-        this->hertz = hertz;
-        this->gpio = gpio;
+        this->gpio_right = gpio_right;
+        this->gpio_left = gpio_left;
 
-        init();
   }
     void init()
     {
-        this->see_something = 0;
-
         // Set GPIO pin
         // TODO: JD
     }
 
-    int read()
+    int read700()
     {
         // TODO: JD
         // this->see_something = digitalRead(this->gpio);
-        return this->see_something;
+        return 0;
+    }
+
+    int read23()
+    {
+        // TODO: JD
+        // this->see_something = digitalRead(this->gpio);
+        return 0;
     }
 };
 
@@ -451,8 +454,7 @@ void drive(int move_degrees, int look_direction, int speed)
 //   return 0;
 // }
 
-// InfraredReceiver InfraredReceiver700Hz(700, INFRARED_RECEIVER_700HZ_GPIO);
-// InfraredReceiver InfraredReceiver23Hz(23, INFRARED_RECEIVER_23HZ_GPIO);
+// InfraredReceiver InfraredReceiverSensor();
 
 // ViveSensor ViveRight(1, VIVE_RIGHT_GPIO);
 // ViveSensor ViveLeft(0, VIVE_LEFT_GPIO);
