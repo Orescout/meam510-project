@@ -283,7 +283,7 @@ public:
       distanceSensor.clearInterrupt();
       distanceSensor.stopRanging();
 
-      Serial.print("Reading distance"); Serial.println(distance);
+      Serial.print("Reading distance"); Serial.println(this->distance);
 
       return this->distance;
     }
@@ -335,162 +335,6 @@ public:
 void println(int x)
 {
   Serial.println(x);
-}
-
-void handleRoot()
-{
-  h.sendhtml(body);
-}
-
-void handleKeyPressed()
-{
-  String keys = h.getText();
-  keys.replace("%22", "\""); // Reconstruct quotations "" in JSON
-  h.sendplain(keys);
-  // Serial.println("Keys Pressed: " + keys);
-
-  StaticJsonBuffer<600> jsonBuffer;                    // Create the JSON buffer
-  JsonObject &keysJSON = jsonBuffer.parseObject(keys); // Parse and create json object
-
-  // Look variables
-  int look_left = keysJSON["37"];
-  int look_right = keysJSON["39"];
-  if (look_right == look_left == 1)
-  { // If both look left+right --> cancel out
-    look_right = 0;
-    look_left = 0;
-  }
-  int look_direction = 0;
-  if (look_left || look_right)
-  {
-    look_direction = -look_left + look_right;
-  }
-  if (look_direction != 0)
-  {
-    Serial.print("Look: ");
-    Serial.print(look_direction);
-    Serial.println(" direction.");
-  }
-
-  // Move variables
-  int move_up = keysJSON["87"];
-  int move_down = keysJSON["83"];
-  int move_left = keysJSON["65"];
-  int move_right = keysJSON["68"];
-  if (move_up == move_down == 1)
-  { // If both look up+down --> cancel out
-    move_up = 0;
-    move_down = 0;
-  }
-  if (move_right == move_left == 1)
-  { // If both look left+right --> cancel out
-    move_right = 0;
-    move_left = 0;
-  }
-  int move_degrees = -1;
-  if (move_up || move_down)
-  {
-    move_degrees = move_up * 0 + move_down * 180;
-  }
-  if (move_right)
-  {
-    move_degrees = 90 - move_up * 45 + move_down * 45;
-  }
-  if (move_left)
-  {
-    move_degrees = 270 - move_down * 45 + move_up * 45;
-  }
-  if (move_degrees != -1)
-  {
-    Serial.print("Move: ");
-    Serial.print(move_degrees);
-    Serial.println(" degrees.");
-  }
-
-  // Speed variables - biggest speed rules
-  static int current_speed = 5;
-  int speed_0 = keysJSON["48"];
-  int speed_1 = keysJSON["49"];
-  int speed_2 = keysJSON["50"];
-  int speed_3 = keysJSON["51"];
-  int speed_4 = keysJSON["52"];
-  int speed_5 = keysJSON["53"];
-  int speed_6 = keysJSON["54"];
-  int speed_7 = keysJSON["55"];
-  int speed_8 = keysJSON["56"];
-  int speed_9 = keysJSON["57"];
-
-  // Update current speed
-  if (speed_0 || speed_1 || speed_2 || speed_3 || speed_4 || speed_5 || speed_6 || speed_7 || speed_8 || speed_9)
-  { // If any 0-9 key is pressed
-    current_speed = max(max(max(speed_0 * 0, speed_1 * 1), max(speed_2 * 2, speed_3 * 3)), max(max(max(speed_4 * 4, speed_5 * 5), max(speed_6 * 6, speed_7 * 7)), max(speed_8 * 8, speed_9 * 9)));
-  }
-
-  drive(move_degrees, look_direction, current_speed);
-}
-
-void handleStateUpdate()
-{
-
-  // Construct JSON to send to frontend
-  StaticJsonBuffer<300> JSONbuffer;
-  JsonObject &JSONencoder = JSONbuffer.createObject();
-
-  String response_json = "{  \
-        'status': 'success', \
-        'skip_setup': false, \
-        'setup': { \
-          'robot_width': " +
-                         String(ROBOT_WIDTH) + ", \
-          'robot_height': " +
-                         String(ROBOT_HEIGHT) + ", \
-          'game_width': 366, \
-          'game_height': 152 \
-        }, \
-        'robot': { \
-          'x': 100, \
-          'y': 50, \
-          'degrees': \
-        }, \
-        'IR_sensor': { \
-          'beacon_700Hz': 1, \
-          'beacon_23Hz': 0 \
-        }, \
-        'ToF_sensor': { \
-          'distance': [20], \
-          'degrees': [0], \
-          'time': [0] \
-        }, \
-        'motors': { \
-          'power': { \
-            'front_left_A': " +
-                         String(motorFrontLeftA.getSpeed()) + ", \
-            'back_left_B': " +
-                         String(motorBackLeftB.getSpeed()) + ", \
-            'front_right_C': " +
-                         String(motorFrontRightC.getSpeed()) + ", \
-            'back_right_D': " +
-                         String(motorBackRightD.getSpeed()) + " \
-          }, \
-          'direction': { \
-            'front_left_A': " +
-                         String(motorFrontLeftA.getDirection()) + ", \
-            'back_left_B': " +
-                         String(motorBackLeftB.getDirection()) + ", \
-            'front_right_C': " +
-                         String(motorFrontRightC.getDirection()) + ", \
-            'back_right_D': " +
-                         String(motorBackRightD.getDirection()) + " \
-          } \
-        } \
-      }";
-
-  response_json.replace(" ", "");
-
-  Serial.print("Sending to web this: ");
-  Serial.println(response_json);
-
-  h.sendplain(response_json);
 }
 
 void setAllDirections(int direction_A, int direction_B, int direction_C, int direction_D)
@@ -615,6 +459,162 @@ void drive(int move_degrees, int look_direction, int speed)
 
 TimeOfFlight TimeOfFlightDegrees0(0, TIME_OF_FLIGHT_0_DEGREES_SDA_GPIO, TIME_OF_FLIGHT_0_DEGREES_SCL_GPIO);
 
+void handleRoot()
+{
+  h.sendhtml(body);
+}
+
+void handleKeyPressed()
+{
+  String keys = h.getText();
+  keys.replace("%22", "\""); // Reconstruct quotations "" in JSON
+  h.sendplain(keys);
+  // Serial.println("Keys Pressed: " + keys);
+
+  StaticJsonBuffer<600> jsonBuffer;                    // Create the JSON buffer
+  JsonObject &keysJSON = jsonBuffer.parseObject(keys); // Parse and create json object
+
+  // Look variables
+  int look_left = keysJSON["37"];
+  int look_right = keysJSON["39"];
+  if (look_right == look_left == 1)
+  { // If both look left+right --> cancel out
+    look_right = 0;
+    look_left = 0;
+  }
+  int look_direction = 0;
+  if (look_left || look_right)
+  {
+    look_direction = -look_left + look_right;
+  }
+  if (look_direction != 0)
+  {
+    Serial.print("Look: ");
+    Serial.print(look_direction);
+    Serial.println(" direction.");
+  }
+
+  // Move variables
+  int move_up = keysJSON["87"];
+  int move_down = keysJSON["83"];
+  int move_left = keysJSON["65"];
+  int move_right = keysJSON["68"];
+  if (move_up == move_down == 1)
+  { // If both look up+down --> cancel out
+    move_up = 0;
+    move_down = 0;
+  }
+  if (move_right == move_left == 1)
+  { // If both look left+right --> cancel out
+    move_right = 0;
+    move_left = 0;
+  }
+  int move_degrees = -1;
+  if (move_up || move_down)
+  {
+    move_degrees = move_up * 0 + move_down * 180;
+  }
+  if (move_right)
+  {
+    move_degrees = 90 - move_up * 45 + move_down * 45;
+  }
+  if (move_left)
+  {
+    move_degrees = 270 - move_down * 45 + move_up * 45;
+  }
+  if (move_degrees != -1)
+  {
+    Serial.print("Move: ");
+    Serial.print(move_degrees);
+    Serial.println(" degrees.");
+  }
+
+  // Speed variables - biggest speed rules
+  static int current_speed = 5;
+  int speed_0 = keysJSON["48"];
+  int speed_1 = keysJSON["49"];
+  int speed_2 = keysJSON["50"];
+  int speed_3 = keysJSON["51"];
+  int speed_4 = keysJSON["52"];
+  int speed_5 = keysJSON["53"];
+  int speed_6 = keysJSON["54"];
+  int speed_7 = keysJSON["55"];
+  int speed_8 = keysJSON["56"];
+  int speed_9 = keysJSON["57"];
+
+  // Update current speed
+  if (speed_0 || speed_1 || speed_2 || speed_3 || speed_4 || speed_5 || speed_6 || speed_7 || speed_8 || speed_9)
+  { // If any 0-9 key is pressed
+    current_speed = max(max(max(speed_0 * 0, speed_1 * 1), max(speed_2 * 2, speed_3 * 3)), max(max(max(speed_4 * 4, speed_5 * 5), max(speed_6 * 6, speed_7 * 7)), max(speed_8 * 8, speed_9 * 9)));
+  }
+
+  drive(move_degrees, look_direction, current_speed);
+}
+
+void handleStateUpdate()
+{
+
+  // Construct JSON to send to frontend
+  StaticJsonBuffer<300> JSONbuffer;
+  JsonObject &JSONencoder = JSONbuffer.createObject();
+
+  String response_json = "{  \
+        'status': 'success', \
+        'skip_setup': false, \
+        'setup': { \
+          'robot_width': " +
+                         String(ROBOT_WIDTH) + ", \
+          'robot_height': " +
+                         String(ROBOT_HEIGHT) + ", \
+          'game_width': 366, \
+          'game_height': 152 \
+        }, \
+        'robot': { \
+          'x': 100, \
+          'y': 50, \
+          'degrees': \
+        }, \
+        'IR_sensor': { \
+          'beacon_700Hz': 1, \
+          'beacon_23Hz': 0 \
+        }, \
+        'ToF_sensor': { \
+          'distance': [" + String(TimeOfFlightDegrees0.read()) + "], \
+          'degrees': [0], \
+          'time': [0] \
+        }, \
+        'motors': { \
+          'power': { \
+            'front_left_A': " +
+                         String(motorFrontLeftA.getSpeed()) + ", \
+            'back_left_B': " +
+                         String(motorBackLeftB.getSpeed()) + ", \
+            'front_right_C': " +
+                         String(motorFrontRightC.getSpeed()) + ", \
+            'back_right_D': " +
+                         String(motorBackRightD.getSpeed()) + " \
+          }, \
+          'direction': { \
+            'front_left_A': " +
+                         String(motorFrontLeftA.getDirection()) + ", \
+            'back_left_B': " +
+                         String(motorBackLeftB.getDirection()) + ", \
+            'front_right_C': " +
+                         String(motorFrontRightC.getDirection()) + ", \
+            'back_right_D': " +
+                         String(motorBackRightD.getDirection()) + " \
+          } \
+        } \
+      }";
+
+  response_json.replace(" ", "");
+
+  Serial.print("Sending to web this: ");
+  Serial.println(response_json);
+
+  h.sendplain(response_json);
+}
+
 void setup()
 {
   Serial.begin(115200);
@@ -641,12 +641,23 @@ void setup()
   TimeOfFlightDegrees0.init();
 }
 
+void logicMode(int mode){
+  if (mode == 0) { // Logic for Wall Follow: turn when distance gets <300mm:
+    if (TimeOfFlightDegrees0.read() < 400) {
+      drive(-1, -1, 4);
+    }
+    else
+    {
+      drive(0, 0, 4);
+    }
+  }
+}
+
 void loop()
 {
   h.serve(); // listen to the frontend commands
 
   delay(10);
 
-  // READ FROM ToF
-  TimeOfFlightDegrees0.read();
+  logicMode(0); // 0: Wall Follow
 }
