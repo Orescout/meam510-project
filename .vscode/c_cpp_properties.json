@@ -201,6 +201,8 @@
                 "/Users/User1/Library/Arduino15/packages/esp32/hardware/esp32/2.0.5/cores/esp32",
                 "/Users/User1/Library/Arduino15/packages/esp32/hardware/esp32/2.0.5/variants/esp32s2",
                 "/Users/User1/Library/Arduino15/packages/esp32/hardware/esp32/2.0.5/libraries/WiFi/src",
+                "/Users/User1/Library/Arduino15/packages/esp32/hardware/esp32/2.0.5/libraries/Wire/src",
+                "/Users/User1/Projects/Mechatronics MEAM510/Lab4/libraries/SparkFun_VL53L1X_4m_Laser_Distance_Sensor/src",
                 "/Users/User1/Library/Arduino15/packages/esp32/tools/xtensa-esp32s2-elf-gcc/gcc8_4_0-esp-2021r2-patch3/xtensa-esp32s2-elf/include/c++/8.4.0",
                 "/Users/User1/Library/Arduino15/packages/esp32/tools/xtensa-esp32s2-elf-gcc/gcc8_4_0-esp-2021r2-patch3/xtensa-esp32s2-elf/include/c++/8.4.0/xtensa-esp32s2-elf",
                 "/Users/User1/Library/Arduino15/packages/esp32/tools/xtensa-esp32s2-elf-gcc/gcc8_4_0-esp-2021r2-patch3/xtensa-esp32s2-elf/include/c++/8.4.0/backward",
