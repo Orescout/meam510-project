@@ -1,495 +1,415 @@
-// Libraries to import
-#include "body.h"
-#include "html510.h"
-#include "Libraries/ArduinoJson.h"
+/* MEAM510 - Final project
+ * VIVE location sent via ESP-NOW
+ * Demonstrates high precision vive localization and displays on RGB LED
+ * SOPHIE THOREL
+ */
+#include "vive510.h"
 
-HTML510Server h(80);
+#include <WiFi.h>
+#include <math.h>
 
-// https://medesign.seas.upenn.edu/index.php/Guides/ESP32-pins
-
-// Wifi
-const char* ssid = "TEAM HAWAII WIFI";
-const char* password = "borabora";
-
-//PWM output pins
-#define MOTOR_PWM_GPIO_A 4 
-#define MOTOR_PWM_GPIO_B 5 
-#define MOTOR_PWM_GPIO_C 6
-#define MOTOR_PWM_GPIO_D 7
-
-//PWM channels for ledC
-#define PWM_CH_A 0
-#define PWM_CH_B 1
-#define PWM_CH_C 2
-#define PWM_CH_D 3
-
-//direction pins
-//FL
-#define DIRECTION_MOTOR_A_GPIO_ONE 12 //SWITCHED
-#define DIRECTION_MOTOR_A_GPIO_TWO 11 //SWITCHED
-//FR
-#define DIRECTION_MOTOR_B_GPIO_ONE 14 //SWITCHED
-#define DIRECTION_MOTOR_B_GPIO_TWO 13 //SWITCHED
-//BL
-#define DIRECTION_MOTOR_C_GPIO_ONE 10
-#define DIRECTION_MOTOR_C_GPIO_TWO 9
-//BR
-#define DIRECTION_MOTOR_D_GPIO_ONE 3
-#define DIRECTION_MOTOR_D_GPIO_TWO 8
-
-//encoder pins
-#define ENCODER_GPIO_A 1
-#define ENCODER_GPIO_B 2
-#define ENCODER_GPIO_C 42
-#define ENCODER_GPIO_D 41
-
-//intitial direction of motors
-//1 is CW, 0 is CCW
-#define DIR_A 0
-#define DIR_B 1
-#define DIR_C 0
-#define DIR_D 1
-
-//reverse direction
-#define BACK_DIR_A 1
-#define BACK_DIR_B 0 
-#define BACK_DIR_C 1
-#define BACK_DIR_D 0
+//ESPNow: libraries to include
+#include <esp_now.h>
+#define RGBLED 2 // for ESP32S2 Devkit pin 18, for M5 stamp=2
+#define VivePinLEFT 19 // pin receiving signal from first LEFT Vive circuit: ie output of vive circuit
+#define VivePinRIGHT 20 //pin receiving signal from second RIGHT Vive circuit
+#define teamNumber 30 //TODO: important for game, when you implement ESPnow-Game-Sender.ino
 
 
+//initialize VIVE object
+Vive510 viveLeft(VivePinLEFT);
+//TODO: initialize second VIVE object
+Vive510 viveRight(VivePinRIGHT);
 
-//PWM setup
-#define PWM_RES 12
-#define PWM_FREQ 25
 
-//time keeping variable
-float tick = 0.0;
+//define int values to each of the coordinates the vive function returns
+#define LEFT_X 1
+#define LEFT_Y 2
+#define RIGHT_X 3
+#define RIGHT_Y 4
 
-//time interval for slot calculation (in milliseconds)
-#define TIME_INTERVAL 200
 
-//PID setup
-#define Kp .05
-#define Ki 1.1
+//Bearing angle: measured in relation to the board orientation
+//float Bearing;
 
-class Motor
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ESPNOW SENDER SETUP: copied from canvas~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#define CHANNEL 1                  // channel can be 1 to 14, channel 0 means current channel.  
+#define MAC_RECV  {0x84,0xF7,0x03,0xA8,0xBE,0x30} // receiver MAC address (last digit should be even for STA)
+
+esp_now_peer_info_t peer1 = 
 {
-private:
-    int motor_pwm_gpio;
-    int pwm_ch;
-    int direction_gpio_A;
-    int direction_gpio_B;
-    int encoder_gpio;
-    int dir;
-    int encoder_state;
-    int old_encoder_state;
-    int curr_slot;
-    int old_slot;
-    float integration_sum_PID;
-
-public:
-    Motor(int motor_pwm_gpio, int pwm_ch, int direction_gpio_A, int direction_gpio_B, int encoder_gpio, int dir)
-    {
-        this->motor_pwm_gpio = motor_pwm_gpio;
-        this->pwm_ch = pwm_ch;
-        this->direction_gpio_A = direction_gpio_A;
-        this->direction_gpio_B = direction_gpio_B;
-        this->encoder_gpio = encoder_gpio;
-        this->dir = dir;
-
-        init();
-    }
-    void init()
-    {
-        // ledC setup
-        ledcAttachPin(this->motor_pwm_gpio, this->pwm_ch);
-        ledcSetup(this->pwm_ch, PWM_FREQ, PWM_RES);
-
-        // direction pin setup
-        pinMode(this->direction_gpio_A, OUTPUT);
-        pinMode(this->direction_gpio_B, OUTPUT);
-
-        // set initial directions of GPIO direction pins to be HIGH and LOW
-        digitalWrite(this->direction_gpio_A, LOW);
-        digitalWrite(this->direction_gpio_B, HIGH);
-
-        // encoder pin setup
-        pinMode(this->encoder_gpio, INPUT);
-
-        // various initializations
-        this->curr_slot = 0;
-        this->old_slot = 0;
-        this->encoder_state = 1;
-        this->old_encoder_state = 0;
-        this->integration_sum_PID = 0;
-    }
-
-    // calculates velocity using how many slots have moved in the time interval
-    int getVel()
-    {
-        int vel = this->curr_slot - this->old_slot;
-        this->old_slot = this->curr_slot;
-        return vel;
-    }
-
-    // increments/decrements pos each time encoder goes
-    // constantly keeping track of the number of slots gone by
-    void updateEncoder()
-    {
-        // read encoder
-        this->encoder_state = digitalRead(this->encoder_gpio);
-        // if in new hole update
-        if (this->encoder_state != this->old_encoder_state)
-        {
-            this->old_encoder_state = this->encoder_state;
-            if (this->dir == 1)
-            {
-                // CW
-                this->curr_slot = this->curr_slot + 1;
-            }
-            else
-            {
-                // CCW
-                this->curr_slot = this->curr_slot - 1;
-            }
-        }
-    }
-
-    // PID goes here!!!!!
-    void go(int targetSpeed)
-    {
-      //ST EDIT
-      int temp_speed = 1500; //dummy pwm to pass to all motors unless passing in 0
-      if (targetSpeed == 0) { //case where we want motor to stop
-        ledcWrite(this->pwm_ch, targetSpeed); // TODO: CHANGE IF SHIT GOES TO HELL
-      } else {
-        ledcWrite(this->pwm_ch, temp_speed);
-      }
-        // // this is the number of slots per time interval it is moving
-        // int currentSpeed = this->getVel();
-
-        // Serial.print("Target: ");
-        // Serial.println(targetSpeed);
-        // Serial.print("Current: ");
-        // Serial.println(currentSpeed);
-
-        // // PID will be here
-        // int error = targetSpeed - currentSpeed; //[slots/timeinterval]
-        // float proportional = Kp * error;
-        // Serial.print("proportional: ");
-        // Serial.println(proportional);
-        // Serial.print("Existing integration sum: ");
-        // Serial.println(integration_sum_PID);
-        // this->integration_sum_PID = Ki * (this->integration_sum_PID + error * TIME_INTERVAL / 1000);
-        // Serial.print("integration_sum_PID: ");
-        // Serial.println(integration_sum_PID);
-
-        // // total_PI must be between 0 and 1
-        // float total_PI = this->integration_sum_PID + proportional;
-        // Serial.print("total_PI: ");
-        // Serial.println(total_PI);
-        // // TODO round it instead of cast
-        // if (total_PI < (float)0.0)
-        // {
-        //     total_PI = 0.0;
-        // }
-        // else if (total_PI > (float)1.0)
-        // {
-        //     total_PI = 1.0;
-        // }
-        // // int new_duty_cycle = (int) min(max(total_PI, (float) 0.0), (float) 1.0) * (float) 4095.0;
-        // int new_duty_cycle = (int)(total_PI * (float)4095.0);
-        // Serial.print("DC: ");
-        // Serial.println(new_duty_cycle);
-
-        // // this is where the speed of the motor is changed based off of duty cycle 0-4095
-        // ledcWrite(this->pwm_ch, new_duty_cycle);
-    }
-
-    // change the direction that the motor is going
-    // forwards or backwards
-    void changeDirection(int new_dir)
-    {
-        // set the direction that the motors moves
-        if (new_dir == 1)
-        {
-            // CW; FORWARD
-            digitalWrite(this->direction_gpio_A, LOW);
-            digitalWrite(this->direction_gpio_B, HIGH);
-        }
-        else
-        {
-            // CCW; BACKWARD
-            digitalWrite(this->direction_gpio_A, HIGH);
-            digitalWrite(this->direction_gpio_B, LOW);
-        }
-    }
+  .peer_addr = MAC_RECV, 
+  .channel = CHANNEL,
+  .encrypt = false,
+};
+//staff comm
+esp_now_peer_info_t staffcomm = {
+  .peer_addr = {0x84,0xF7,0x03,0xA9,0x04,0x78}, 
+  .channel = 1,             // channel can be 1 to 14, channel 0 means current channel.
+  .encrypt = false,
+};
+esp_now_peer_info_t peercomm = {
+  .peer_addr = {0x84,0xF7,0x03,0xA9,0x04,0x78},  //TODO: update to peer MAC address
+  .channel = 1,             // channel can be 1 to 14, channel 0 means current channel.
+  .encrypt = false,
 };
 
-// Creating all the motor objects
-Motor motorFrontLeftA(MOTOR_PWM_GPIO_A, PWM_CH_A, DIRECTION_MOTOR_A_GPIO_ONE, DIRECTION_MOTOR_A_GPIO_TWO, ENCODER_GPIO_A, DIR_A);
-Motor motorBackLeftB(MOTOR_PWM_GPIO_B, PWM_CH_B, DIRECTION_MOTOR_B_GPIO_ONE, DIRECTION_MOTOR_B_GPIO_TWO, ENCODER_GPIO_B, DIR_B);
-Motor motorFrontRightC(MOTOR_PWM_GPIO_C, PWM_CH_C, DIRECTION_MOTOR_C_GPIO_ONE, DIRECTION_MOTOR_C_GPIO_TWO, ENCODER_GPIO_C, DIR_C);
-Motor motorBackRightD(MOTOR_PWM_GPIO_D, PWM_CH_D, DIRECTION_MOTOR_D_GPIO_ONE, DIRECTION_MOTOR_D_GPIO_TWO, ENCODER_GPIO_D, DIR_D);
-
-void println(int x) {
-  Serial.println(x);
+// callback when data is sent 
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  if (status == ESP_NOW_SEND_SUCCESS) Serial.println ("Success ");
+  else Serial.println("Fail "); 
 }
 
-void handleRoot() {
-  h.sendhtml(body);
+//game sender to required staff: taken from game-sender.ino code
+void pingstaff() {
+  uint8_t teamNum = 30;
+  esp_now_send(staffcomm.peer_addr, &teamNum, 1);     
 }
 
-void handleKeyPressed(){
-  String keys = h.getText();
-  keys.replace("%22", "\""); // Reconstruct quotations "" in JSON
-  h.sendplain(keys);
-  // Serial.println("Keys Pressed: " + keys);
-
-  StaticJsonBuffer<600> jsonBuffer; // Create the JSON buffer
-  JsonObject& keysJSON = jsonBuffer.parseObject(keys); // Parse and create json object
-
-  // Look variables
-  int look_left = keysJSON["37"];
-  int look_right = keysJSON["39"];
-  if (look_right == look_left == 1) { // If both look left+right --> cancel out
-    look_right = 0;
-    look_left = 0;
-  }
-  int look_direction = 0;
-  if (look_left || look_right) {
-    look_direction = -look_left + look_right;
-  }
-  if (look_direction != 0) {
-    Serial.print("Look: ");
-    Serial.print(look_direction);
-    Serial.println(" direction.");
-  }
-
-  // Move variables
-  int move_up = keysJSON["87"]; 
-  int move_down = keysJSON["83"];
-  int move_left = keysJSON["65"];
-  int move_right = keysJSON["68"];
-  if (move_up == move_down == 1) { // If both look up+down --> cancel out
-    move_up = 0;
-    move_down = 0;
-  }
-  if (move_right == move_left == 1) { // If both look left+right --> cancel out
-    move_right = 0;
-    move_left = 0;
-  }
-  int move_degrees = -1;
-  if (move_up || move_down) {
-    move_degrees = move_up * 0 + move_down * 180;
-  }
-  if (move_right) {
-    move_degrees = 90 - move_up * 45 + move_down * 45;
-  }
-  if (move_left) {
-    move_degrees = 270 - move_down * 45 + move_up * 45;
-  }
-  if (move_degrees != -1) {
-    Serial.print("Move: ");
-    Serial.print(move_degrees);
-    Serial.println(" degrees.");
-  }
-
-  // Speed variables - biggest speed rules
-  static int current_speed = 5;
-  int speed_0  = keysJSON["48"];
-  int speed_1  = keysJSON["49"];
-  int speed_2  = keysJSON["50"];
-  int speed_3  = keysJSON["51"];
-  int speed_4  = keysJSON["52"];
-  int speed_5  = keysJSON["53"];
-  int speed_6  = keysJSON["54"];
-  int speed_7  = keysJSON["55"];
-  int speed_8  = keysJSON["56"];
-  int speed_9  = keysJSON["57"];
-  if (speed_0 || speed_1 || speed_2 || speed_3 || speed_4 || speed_5 || speed_6 || speed_7 || speed_8 || speed_9) { // If any 0-9 key is pressed
-    // Update current speed
-    current_speed = max(max(max(speed_0*0, speed_1*1), max(speed_2*2, speed_3*3)), max(max(max(speed_4*4, speed_5*5), max(speed_6*6, speed_7*7)), max(speed_8*8, speed_9*9)));
-  }
-  //Serial.print("Current speed: "); println(current_speed);
-  //Serial.println(" ");
-
-  drive(move_degrees, look_direction, current_speed);
-}
-//helper subroutine for drive()
-void turnOnAllMotors(int speed) {
-  motorFrontLeftA.go(speed);
-  motorBackLeftB.go(speed);
-  motorFrontRightC.go(speed);
-  motorBackRightD.go(speed);
-}
-//subroutine for turning each motor in the correct direction given the move_degree and look_direction
-void drive(int move_degrees, int look_direction, int speed) {
-
-  //turn off motors if move_deg = -1 and look_dir = 0
-  if (move_degrees == -1 && look_direction == 0) {
-      motorFrontLeftA.go(0);
-      motorFrontRightC.go(0);
-      motorBackLeftB.go(0);
-      motorBackRightD.go(0);
-      Serial.println("STOPPED");
-  }
-
-  //handle case where both look and move is on: only look if move not on
-  if (look_direction == 1  && move_degrees == -1) { //look right: rotate CW; 
-    motorFrontLeftA.changeDirection(DIR_A);
-    motorBackLeftB.changeDirection(DIR_B); 
-    motorFrontRightC.changeDirection(BACK_DIR_C); 
-    motorBackRightD.changeDirection(BACK_DIR_D); 
-
-    //turn on motors 
-    turnOnAllMotors(speed);
-    Serial.println("LOOKING right");
-  }
-  if (look_direction == -1 && move_degrees == -1) { //look left: rotate CCW;
-    motorFrontLeftA.changeDirection(BACK_DIR_A); 
-    motorBackLeftB.changeDirection(BACK_DIR_B);
-    motorFrontRightC.changeDirection(DIR_C);
-    motorBackRightD.changeDirection(DIR_D);
-
-    //turn on motors 
-    turnOnAllMotors(speed);
-    Serial.println("LOOKING left");
-  }
-
-  switch (move_degrees) {
-    case 0: // move forward
-      motorFrontLeftA.changeDirection(DIR_A);
-      motorBackLeftB.changeDirection(DIR_B);
-      motorFrontRightC.changeDirection(DIR_C);
-      motorBackRightD.changeDirection(DIR_D);
-
-      turnOnAllMotors(speed); //turn on motors
-
-      Serial.println("0 degrees: MOVE N");
-      break;
-    case 45: //45 deg right, NE
-      motorFrontRightC.changeDirection(DIR_C);
-      motorBackLeftB.changeDirection(DIR_B);
-
-      motorFrontRightC.go(speed);
-      motorBackLeftB.go(speed);
-      motorFrontLeftA.go(0);
-      motorBackRightD.go(0);
-
-      Serial.println("45 degrees: MOVE NE");
-      break;
-    case 90: // RIGHT; East
-      motorFrontLeftA.changeDirection(DIR_A);
-      motorBackLeftB.changeDirection(BACK_DIR_B); 
-      motorFrontRightC.changeDirection(BACK_DIR_C);
-      motorBackRightD.changeDirection(DIR_D);
-
-      turnOnAllMotors(speed);
-      Serial.println("90 degrees: MOVE east");
-      break;
-    case 135: // SE
-      motorFrontLeftA.changeDirection(BACK_DIR_A);
-      motorBackRightD.changeDirection(BACK_DIR_D); 
-
-      //turn on motors
-      motorFrontLeftA.go(speed);
-      motorBackRightD.go(speed);
-      motorFrontRightC.go(0);
-      motorBackLeftB.go(0);
-
-      Serial.println("135 degrees: MOVE SE");
-      break;
-    case 180: //SOUTH
-      motorFrontLeftA.changeDirection(BACK_DIR_A);
-      motorBackLeftB.changeDirection(BACK_DIR_B);
-      motorFrontRightC.changeDirection(BACK_DIR_C);
-      motorBackRightD.changeDirection(BACK_DIR_D);
-
-      turnOnAllMotors(speed); //turn on motors
-
-      Serial.println("180 degrees: MOVE S");
-      break;
-    case 225: //SW
-      motorFrontRightC.changeDirection(BACK_DIR_C);
-      motorBackLeftB.changeDirection(BACK_DIR_B);
-
-      //turn on motors
-      motorFrontRightC.go(speed);
-      motorBackLeftB.go(speed);
-      motorFrontLeftA.go(0);
-      motorBackRightD.go(0);
-
-      Serial.println("225 degrees: MOVE SW");
-      break;
-    case 270: //WEST (left)
-      motorFrontLeftA.changeDirection(BACK_DIR_A);
-      motorBackLeftB.changeDirection(DIR_B);
-      motorFrontRightC.changeDirection(DIR_C);
-      motorBackRightD.changeDirection(BACK_DIR_D);
-
-      turnOnAllMotors(speed); //turn on motors
-
-      Serial.println("270 degrees: MOVE W");
-      break;
-    case 315: // NW
-      motorFrontLeftA.changeDirection(DIR_A);
-      motorBackRightD.changeDirection(DIR_D); 
-  
-
-      //turn on motors
-      motorFrontLeftA.go(speed);
-      motorBackRightD.go(speed);
-      motorFrontRightC.go(0);
-      motorBackLeftB.go(0);
-
-      Serial.println("315 degrees: MOVE NW");
-      break;
-  }
+//send message to staff ESP32 once per second with vive XY location
+void sendXY(int robotX, int robotY) {
+  char msg[13];
+  sprintf(msg, "%2d:%4d,%4d", teamNumber, robotX, robotY);
+  esp_now_send(staffcomm.peer_addr, (uint8_t *) msg, 13);
 }
 
+//////////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ NAVIGATION FUNCTIONS ////////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+/*
+//function to provide bearing angle of the bot, given two (x,y) pairs. Theta goes clockwise from the North direction
+float getBearingAngle() {
+  const float RAD2DEG = 180.0f / PI;
+  float rad = atan2((LeftY - RightY), (LeftX-RightX)); //arctan returns angle in radians TODO: check
+  float theta = rad*RAD2DEG; //convert to degrees
+
+  //bound angle between 0 and 360
+  if (theta < 0) {
+    theta +=360;
+  }
+  BearingAngle = theta; //update global variable
+  return theta; //TODO: since we are updating a global variable, no need to return anything. change function to void
+}
+
+//function to calculate bearing angle between bot and object
+void getAngle(int targetX, int targetY) {
+  //update bearing by passing in a command to wheels to rotate until target bearing is met
+  float targetAngle = 0;
+  //math to calculate targetAngle
+  ////pass commands to motors
+  //update current angle 
+}
+*/
+//function to return the center coordinates of the bot, ie. middle pt between the two vive sensor readings
+int getCenterX(int lx, int rx) {
+  int CenterX = (lx + rx)/2;
+  return CenterX;
+}
+int getCenterY(int ly, int ry) {
+  int CenterY = (ly + ry)/2;
+  return CenterY;
+}
+
+//function to get the vive values
+int getVive(int viveCoord) {
+  //initialize all return values to 0
+  int avg_lx = 0;
+  int avg_ly = 0;
+  int avg_rx = 0;
+  int avg_ry = 0;
+
+  switch (viveCoord) {
+    case LEFT_X:
+      Serial.print("VIVELEFT STATUS:");
+      Serial.println(viveLeft.status());
+      if (viveLeft.status() == VIVE_RECEIVING) {
+        int lx1 = viveLeft.xCoord();
+        int lx2 = viveLeft.xCoord();
+        int lx3 = viveLeft.xCoord();
+        int lx4 = viveLeft.xCoord();
+        int lx5 = viveLeft.xCoord();
+        int lx6 = viveLeft.xCoord();
+        int lx7 = viveLeft.xCoord();
+        int lx8 = viveLeft.xCoord();
+        int lx9 = viveLeft.xCoord();
+        int lx10 = viveLeft.xCoord();
+        avg_lx = (lx1 + lx2 + lx3 + lx4 + lx5 +lx6 + lx7 + lx8 + lx9 + lx10)/10;
+        neopixelWrite(RGBLED,0,avg_lx/200,avg_lx/200);  // blue to greenish
+        Serial.printf("LeftX %d ", avg_lx);
+        return avg_lx;
+      } else {
+          switch (viveLeft.sync(5)) {
+            break;
+            case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
+              neopixelWrite(RGBLED,64,32,0);  // yellowish
+              Serial.println("Left vive: weak signal");
+            break;
+            default:
+            case VIVE_NO_SIGNAL: // nothing detected     
+              neopixelWrite(RGBLED,128,0,0);  // red
+              Serial.println("Left vive: no signal");
+          }
+      }
+      return avg_lx;
+      //TODO: DO FOR ALL 4 CASES
+      break;
+    case LEFT_Y:
+      Serial.print("VIVELEFT STATUS:");
+      Serial.println(viveLeft.status());
+      if (viveLeft.status() == VIVE_RECEIVING) {
+        int l1 = viveLeft.yCoord();
+        int l2 = viveLeft.yCoord();
+        int l3 = viveLeft.yCoord();
+        int l4 = viveLeft.yCoord();
+        int l5 = viveLeft.yCoord();
+        int l6 = viveLeft.yCoord();
+        int l7 = viveLeft.yCoord();
+        int l8 = viveLeft.yCoord();
+        int l9 = viveLeft.yCoord();
+        int l10 = viveLeft.yCoord();
+        avg_ly = (l1 + l2 + l3 + l4 + l5 +l6 + l7 + l8 + l9 + l10)/10;
+        neopixelWrite(RGBLED,0,avg_ly/200,avg_ly/200);  // blue to greenish
+        Serial.printf("LeftY %d ", avg_ly);
+        return avg_ly;
+      } else {
+          switch (viveLeft.sync(5)) {
+            break;
+            case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
+              neopixelWrite(RGBLED,64,32,0);  // yellowish
+              Serial.println("Left vive: weak signal");
+            break;
+            default:
+            case VIVE_NO_SIGNAL: // nothing detected     
+              neopixelWrite(RGBLED,128,0,0);  // red
+              Serial.println("Left vive: no signal");
+          }
+      }
+      return avg_lx;
+      break;
+    case RIGHT_X:
+      Serial.print("VIVERIGHT STATUS:");
+      Serial.println(viveRight.status());
+      if (viveRight.status() == VIVE_RECEIVING) {
+        int r1 = viveRight.xCoord();
+        int r2 = viveRight.xCoord();
+        int r3 = viveRight.xCoord();
+        int r4 = viveRight.xCoord();
+        int r5 = viveRight.xCoord();
+        int r6 = viveRight.xCoord();
+        int r7 = viveRight.xCoord();
+        int r8 = viveRight.xCoord();
+        int r9 = viveRight.xCoord();
+        int r10 = viveRight.xCoord();
+        avg_rx = (r1 + r2 + r3 + r4 + r5 +r6 + r7 + r8 + r9 + r10)/10;
+        neopixelWrite(RGBLED,0,avg_rx/200,avg_rx/200);  // blue to greenish
+        Serial.printf("RightX %d ", avg_rx);
+        return avg_rx;
+      } else {
+          switch (viveRight.sync(5)) {
+            break;
+            case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
+              neopixelWrite(RGBLED,64,32,0);  // yellowish
+              Serial.println("Right vive: weak signal");
+            break;
+            default:
+            case VIVE_NO_SIGNAL: // nothing detected     
+              neopixelWrite(RGBLED,128,0,0);  // red
+              Serial.println("Right vive: no signal");
+          }
+      }
+      return avg_rx;
+        //TODO: DO FOR ALL 4 CASES
+      break;
+      case RIGHT_Y:
+      Serial.print("VIVERIGHT STATUS:");
+      Serial.println(viveRight.status());
+      if (viveRight.status() == VIVE_RECEIVING) {
+        int r1 = viveRight.yCoord();
+        int r2 = viveRight.yCoord();
+        int r3 = viveRight.yCoord();
+        int r4 = viveRight.yCoord();
+        int r5 = viveRight.yCoord();
+        int r6 = viveRight.yCoord();
+        int r7 = viveRight.yCoord();
+        int r8 = viveRight.yCoord();
+        int r9 = viveRight.yCoord();
+        int r10 = viveRight.yCoord();
+        avg_ry = (r1 + r2 + r3 + r4 + r5 +r6 + r7 + r8 + r9 + r10)/10;
+        neopixelWrite(RGBLED,0,avg_ry/200,avg_ry/200);  // blue to greenish
+        Serial.printf("RightY %d ", avg_ry);
+        return avg_ry;
+      } else {
+          switch (viveRight.sync(5)) {
+            break;
+            case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
+              neopixelWrite(RGBLED,64,32,0);  // yellowish
+              Serial.println("Right vive: weak signal");
+            break;
+            default:
+            case VIVE_NO_SIGNAL: // nothing detected     
+              neopixelWrite(RGBLED,128,0,0);  // red
+              Serial.println("Right vive: no signal");
+          }
+      }
+      return avg_ry;
+      break;     
+  } //end of switch
+}
+//function to get police car x and y
+//TODO: implement using UDP
+int getPoliceCarX() {
+  return 0;
+}
+int getPoliceCarY() {
+  return 0;
+}
+
+//function to calculate distances to police car
+// get distance from left sensor to police
+float DistL() {
+  //get updated vive values
+  int leftx = getVive(LEFT_X);
+  int lefty = getVive(LEFT_Y);
+  int rightx = getVive(RIGHT_X);
+  int righty = getVive(RIGHT_Y);
+  int PoliceX = getPoliceCarX();
+  int PoliceY = getPoliceCarY();
+  return ((sqrt(sq(leftx - PoliceX)) + sq(lefty-PoliceY)));//pythagorean distance
+}
+
+float DistR() {
+  int leftx = getVive(LEFT_X);
+  int lefty = getVive(LEFT_Y);
+  int rightx = getVive(RIGHT_X);
+  int righty = getVive(RIGHT_Y);
+  int PoliceX = getPoliceCarX();
+  int PoliceY = getPoliceCarY();
+  return (sqrt(sq(rightx-PoliceX) + sq(righty-PoliceY)));//pythagorean distance
+}
+
+//function to rotate: dummy for now
+//TODO: update
+void rotate_left() {
+  return;
+}
+void rotate_right() {
+  return;
+}
+void move_forward() {
+  return;
+}
+
+void move(int speed, int FL, int FR, int BL, int BR) {
+
+}
+
+//TODO: implement function to get value of TOF sensor
+float getTOF() {
+  return 0.0;
+}
+
+//function police car nav
+void PoliceNav() {
+  //parameters: TODO: will need to test out values that work best. Arbitrary for now
+  int errorMargin = 30; //acceptable difference between both distances that bot can still assume is aligned with car
+  int offsetDiff = 50; //offset difference in case we start aligned
+  int minTOF = 10; //the smallest TOF value we consider to be where bot is practically touching object
+
+  //if aligned with car, need to offset angle to be able to go in the right direction
+  if((abs(DistR() -DistL()))<errorMargin) { 
+    while (abs(DistR() -DistL()) <  offsetDiff) {
+      rotate_left();//replace with individual wheel commands passed in to go f'n
+    }
+  }
+  //if right is closer to police car, turn right:
+  if (DistR() < DistL()) { //
+    while (DistL() - DistR() >= errorMargin) {
+      rotate_right();//TODO: replace with GO
+    }
+  }
+  if (DistL() < DistR()) { //
+    while (DistR() - DistL() >= errorMargin) {
+      rotate_left();//TODO: replace with GO
+    }
+  }
+  //while distances are fairly close together, move forward towards target
+  //TODO: edit while condition to add TOF condition that will check if we have reached the car
+  while (abs(DistL() - DistR()) <= errorMargin) {
+    //if TOF sensor val <= small_val (indicating we have reached police car)
+    if (getTOF() > minTOF) {
+      move_forward(); //TODO: replace with GO
+    } else { //we are at the car: need to move car 12 inches
+      move_forward(); //TODO: update to check that police x and y coords have changed 12 inches
+
+    }
+   
+    /*TODO: incorporate TOF logic to slow down/stop once we get close to object: 
+      * once TOF reader reads a small distance eg. 10cm, slow down;
+      8 Once it reads 2cm, slow down again
+    */
+  }
+  if (getTOF() > minTOF) {
+    //restart PoliceNav function
+    PoliceNav();
+  }
+  //will end function once we've deviated enough
+}
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~SETUP~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
 void setup() {
-  Serial.begin(9600);
-  
-  Serial.print("Access Point SSID: "); Serial.print(ssid);
-  WiFi.mode(WIFI_AP); // Set Mode to Access Point
-  WiFi.softAP(ssid, password); // Define access point SSID and its password
+  Serial.begin(115200);
 
-  IPAddress myIP(192, 168, 1, 161); // Define my unique Static IP (from spreadsheet on slides)
-  WiFi.softAPConfig(myIP, IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0)); // Define the (local IP, Gateway, Subnet mask)
-  
-  Serial.print("Use this URL to connect: http://"); Serial.print(myIP); Serial.println("/"); // Print the IP to connect to
-  
-  h.begin();
+  //sender setup: copied from canvas
+  WiFi.mode(WIFI_STA);  
+  Serial.print("Sending MAC: "); Serial.println(WiFi.macAddress());
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("init failed");
+    ESP.restart();
+  }
+  esp_now_register_send_cb(OnDataSent); //optional if you want back interrupt
+    
+  if (esp_now_add_peer(&peer1) != ESP_OK) {
+    Serial.println("Pair failed");     // ERROR  should not happen
+  }
 
-  h.attachHandler("/ ", handleRoot);
-  h.attachHandler("/key_pressed?val=", handleKeyPressed);
+  //staff comm
+  esp_now_add_peer(&staffcomm);
+  //vive begin
+  viveLeft.begin();
+  viveRight.begin();
+  Serial.println("  Vive trackers started");
+}
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~LOOP~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                              
+void loop() {  
+  //static uint16_t x,y; //TODO: replace with global variables LeftX, LeftY
+  neopixelWrite(RGBLED,255,255,255);  // full white
+  //TODO: get 10 values of vive and send the average of 10; do this for all 4 values, for each x y
+  int leftx = getVive(LEFT_X);
+  int lefty = getVive(LEFT_Y);
+  int rightx = getVive(RIGHT_X);
+  int righty = getVive(RIGHT_Y);
+
+  //FULL NAV FUNCTION: TODO: would delete above calls of getVive
+
+  int CenterX = getCenterX(leftx, rightx);
+  int CenterY = getCenterY(rightx, righty); 
+  pingstaff(); //staff comm
+  sendXY(CenterX, CenterY); //send center x and y to staff computer (TAs)
+
+  PoliceNav();
+  //sender
+  static int count; //initialize count to put message together from sender
+  uint8_t message[200]; // Max ESPnow packet is 250 byte data
+
+  /*
+  // TEST ESP: put some message together to send
+  sprintf((char *) message, "sender %d ", count++);
+  
+  if (esp_now_send(peer1.peer_addr, message, sizeof(message))==ESP_OK) 
+    Serial.printf("Sent '%s' to %x:%x:%x:%x:%x:%x \n",message, peer1.peer_addr[0],peer1.peer_addr[1],peer1.peer_addr[2],peer1.peer_addr[3],peer1.peer_addr[4],peer1.peer_addr[5]);   
+  else Serial.println("Send failed");
+
+  delay(500); // ESPNow max sending rate (with default speeds) is about 50Hz
+  */
 }
 
-void loop() {
-  h.serve(); // listen to the frontend commands
-
-  // //SPEED Changing
-  // //reading potentiometer
-  // int target_speed = 9;
-
-  // //change speed once enough time has passed
-  // if(millis()-tick > TIME_INTERVAL) {
-  //   tick = millis();
-  //   motorA.changeSpeed(target_speed);
-  //   //motorB.changeSpeed(target_speed);
-  //   //motorC.changeSpeed(target_speed);
-  //   //motorD.changeSpeed(target_speed);
-  // }
-  // //keep track of how many slots are going by
-  // motorA.updateEncoder();
-  // //motorB.updateEncoder();
-  // //motorC.updateEncoder();
-  // //motorD.updateEncoder();
-
-  // //example of how changing direction will work
-  // motorA.changeDirection(1);
-  
-  delay(10);
-  // Serial.println(" ");
-}
