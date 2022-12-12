@@ -3,9 +3,6 @@ const char body[] PROGMEM = R"===(
 <!DOCTYPE html>
 <html>
 
-<!DOCTYPE html>
-<html>
-
 <head>
   <style>
     /* Inspired by https://codepen.io/HJ-b/pen/jbPqWO */
@@ -18,6 +15,12 @@ const char body[] PROGMEM = R"===(
       position: absolute;
       left: 0px;
       top: 400px;
+    }
+
+    .canvas-vive-raw {
+      position: absolute;
+      left: 950px;
+      top: 100px;
     }
 
     .arrowbtn {
@@ -182,6 +185,12 @@ const char body[] PROGMEM = R"===(
   <b>Raw JSON from ESP response: </b>
   <span id="response_JSON"> </span> <br>
 
+  <b>Raw Vive Coordinates - Vive #1 Blue: </b>
+  <span id="vive-one-coordinates"> </span> <br>
+
+  <b>Raw Vive Coordinates - Vive #2 Red: </b>
+  <span id="vive-two-coordinates"> </span> <br>
+
   <span class="arrowbtn arrowbtn-lookleft" id="arrow-lookleft"></span>
   <span class="arrowbtn arrowbtn-lookright" id="arrow-lookright"></span>
 
@@ -192,7 +201,7 @@ const char body[] PROGMEM = R"===(
 
   <canvas class="canvas" id="canvas-background" width="705" height="285" style="border:1px solid #ffffff;"></canvas>
   <canvas class="canvas" id="canvas-robot" width="705" height="285"></canvas>
-  <canvas class="canvas" id="canvas-IR-vision" width="705" height="285"></canvas>
+  <canvas class="canvas-vive-raw" id="canvas-vive-raw" width="500" height="500" style="border:1px solid #ffa9a9;"></canvas>
 
 </body>
 
@@ -264,7 +273,9 @@ const char body[] PROGMEM = R"===(
   // Declare drawing objects
   var context_background = document.getElementById("canvas-background").getContext("2d");
   var context_robot = document.getElementById("canvas-robot").getContext("2d");
+  var context_raw_vive = document.getElementById("canvas-vive-raw").getContext("2d");
 
+  // Re-draw canvas from scratch.
   async function drawCanvasBackground() {
     var h = document.getElementById("canvas-background").clientHeight;
     var w = document.getElementById("canvas-background").clientWidth;
@@ -318,7 +329,9 @@ const char body[] PROGMEM = R"===(
       
           } else if (ESP_response.status == "success") {
             // update the state of the robot, by using the multiplier to go from cm to desired pixel sizes
-            updateRobotState(ESP_response.robot.x * scale_multiplier, ESP_response.robot.y * scale_multiplier, ESP_response.robot.degrees,
+            updateRobotState(ESP_response.robot.x * scale_multiplier, ESP_response.robot.y * scale_multiplier, 
+              ESP_response.robot.raw_left_x, ESP_response.robot.raw_left_y, ESP_response.robot.raw_right_x, ESP_response.robot.raw_right_y, // Comment line when done debugging
+              ESP_response.robot.degrees,
               ESP_response.IR_sensor.beacon_700Hz, ESP_response.IR_sensor.beacon_23Hz,
               ESP_response.ToF_sensor.distance * scale_multiplier,
               ESP_response.motors.power.front_left_A, ESP_response.motors.power.back_left_B, ESP_response.motors.power.front_right_C, ESP_response.motors.power.back_right_D,
@@ -346,13 +359,20 @@ const char body[] PROGMEM = R"===(
   //              1.0, 1.0, 1.0, 0.3,
   //              1, 1, 1, 0);
 
-  async function updateRobotState(x_coordinate, y_coordinate, degrees_facing, see_700Hz_beacon, see_23Hz_beacon, distance,
+  var vive_clear_counter = 101;
+
+  async function updateRobotState(x_coordinate, y_coordinate, 
+    raw_left_x, raw_left_y, raw_right_x, raw_right_y,
+    degrees_facing, 
+    see_700Hz_beacon, see_23Hz_beacon, distance,
     motor_power_A, motor_power_B, motor_power_C, motor_power_D,
     motor_dir_A, motor_dir_B, motor_dir_C, motor_dir_D) {
-    // reset canvas
+
+    // reset robot canvas
     context_robot.setTransform(1, 0, 0, 1, 0, 0); // Use the identity matrix while clearing the canvas
     context_robot.clearRect(0, 0, document.getElementById("canvas-background").clientWidth, document.getElementById("canvas-background").clientHeight); // Clean it
-
+    
+    // Set calculating costants, for our translation and rotation later
     var offset_degrees = 135; // Our starting point is top left which is 10.30 o'clock, whereas the cos/sin clock starts from 3 o'clock. That's a difference of 135 degrees.
     var radius = Math.sqrt((robot_width / 2) ** 2 + (robot_height / 2) ** 2);
 
@@ -402,8 +422,48 @@ const char body[] PROGMEM = R"===(
 
     context_robot.fillStyle = "rgba(" + motor_dir_D * 255 + ", " + motor_dir_D * 255 + ", " + motor_dir_D * 255 + "," + motor_power_D + ")"; // Back Right Motor D
     context_robot.fillRect(robot_width * 0.85, robot_height * 0.6, robot_width * 0.1, robot_height * 0.3);
-  }
+    
+    // Part II: Update Vive Canvas
 
+    if (vive_clear_counter > 100) {
+      // reset vive canvas
+      context_raw_vive.setTransform(1, 0, 0, 1, 0, 0); // Use the identity matrix while clearing the canvas
+      context_raw_vive.clearRect(0, 0, document.getElementById("canvas-vive-raw").clientWidth, document.getElementById("canvas-vive-raw").clientHeight); // Clean it
+
+      var p = 0;
+      var bw = document.getElementById("canvas-vive-raw").clientWidth;
+      var bh = document.getElementById("canvas-vive-raw").clientHeight;
+      
+      for (var x = 0; x <= bw; x += 100) {
+          context_raw_vive.moveTo(0.5 + x + p, p);
+          context_raw_vive.lineTo(0.5 + x + p, bh + p);
+      }
+  
+      for (var x = 0; x <= bh; x += 100) {
+          context_raw_vive.moveTo(p, 0.5 + x + p);
+          context_raw_vive.lineTo(bw + p, 0.5 + x + p);
+      }
+      context_raw_vive.strokeStyle = "white";
+      context_raw_vive.stroke();
+
+      vive_clear_counter = 0;
+    } else {
+      vive_clear_counter = vive_clear_counter + 1;
+    }
+
+    // Print vive coordinates
+    document.getElementById("vive-one-coordinates").innerHTML = "(" + String(raw_left_x) + ", " + String(raw_left_y) + ")";
+    document.getElementById("vive-two-coordinates").innerHTML = "(" + String(raw_right_x) + ", " + String(raw_right_y) + ")";
+
+    // Plot vive sensor #1
+    context_raw_vive.fillStyle = "rgba(255, 0, 0, 1)";
+    context_raw_vive.fillRect(Math.round(raw_left_x / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(raw_left_y / 10), 5, 5);
+
+    // Plot vive sensor #2
+    context_raw_vive.fillStyle = "rgba(0, 255, 255, 1)";
+    context_raw_vive.fillRect(Math.round(raw_right_x / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(raw_right_y / 10), 5, 5);
+    
+  }
 
 </script>
 
