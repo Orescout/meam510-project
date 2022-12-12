@@ -362,74 +362,117 @@ void drive(int move_degrees, int look_direction, int speed)
   {
     setAllMotorSpeeds(0, 0, 0, 0);
     Serial.println("STOP");
+    return;
   }
 
   // TURN RIGHT
-  if (look_direction == 1 && move_degrees == -1)
+  if (look_direction == 1)
   { // look right: rotate CW;
     setAllDirections(1, 1, 0, 0);
     setAllMotorSpeeds(speed, speed, speed, speed);
     Serial.println("LOOKING right");
+    return;
   }
 
   // TURN LEFT
-  if (look_direction == -1 && move_degrees == -1)
+  if (look_direction == -1)
   { // look left: rotate CCW;
     setAllDirections(0, 0, 1, 1);
     setAllMotorSpeeds(speed, speed, speed, speed);
     Serial.println("LOOKING left");
+    return;
   }
 
   // MOVE in XY
+
+  // Calculate speed of Back Left motor B and Front Right motor C
+  int speed_BL_B_and_FR_C;
   switch (move_degrees)
   {
-  case 0: // Forward
-    setAllDirections(1, 1, 1, 1);
-    setAllMotorSpeeds(speed, speed, speed, speed);
-    Serial.println("0 degrees: MOVE N");
+  case 0 ... 90:
+    speed_BL_B_and_FR_C = speed - (int) speed * (float) move_degrees / 45.0;
     break;
+  case 91 ... 180:
+    speed_BL_B_and_FR_C = speed * -1;
+    break;
+  case 181 ... 270:
+    speed_BL_B_and_FR_C = (int) speed * (float) (move_degrees - 180) / 45.0 - speed;
+    break;
+  case 271 ... 360:
+    speed_BL_B_and_FR_C = speed;
+    break;
+  }
 
-  case 45: // NE
-    setAllDirections(1, 1, 1, 1);
-    setAllMotorSpeeds(speed, 0, 0, speed);
-    Serial.println("45 degrees: MOVE NE");
+  // Calculate speed of Front Left motor A and Back Right motor D
+  int speed_FL_A_and_BR_D;
+  switch (move_degrees)
+  {
+  case 0 ... 90:
+    speed_FL_A_and_BR_D = speed;
     break;
+  case 91 ... 180:
+    speed_FL_A_and_BR_D = speed - (int) speed * (float) (move_degrees - 90) / 45.0;
+    break;
+  case 181 ... 270:
+    speed_FL_A_and_BR_D = speed * -1;
+    break;
+  case 271 ... 360:
+    speed_FL_A_and_BR_D = (int) speed * (float) (move_degrees - 270) / 45.0 - speed;
+    break;
+  }
 
-  case 90: // RIGHT; East
-    setAllDirections(1, 0, 0, 1);
-    setAllMotorSpeeds(speed, speed, speed, speed);
-    Serial.println("90 degrees: MOVE east");
-    break;
+  setAllDirections(speed_FL_A_and_BR_D > 0, speed_BL_B_and_FR_C > 0, speed_BL_B_and_FR_C > 0, speed_FL_A_and_BR_D > 0);
+  setAllMotorSpeeds(abs(speed_FL_A_and_BR_D), abs(speed_BL_B_and_FR_C), abs(speed_BL_B_and_FR_C), abs(speed_FL_A_and_BR_D));
+  
+  // switch (move_degrees)
+  // {
+  // case 0: // Forward
+  //   setAllDirections(1, 1, 1, 1);
+  //   setAllMotorSpeeds(speed, speed, speed, speed);
+  //   Serial.println("0 degrees: MOVE N");
+  //   break;
 
-  case 135: // SE
-    setAllDirections(0, 0, 0, 0);
-    setAllMotorSpeeds(0, speed, speed, 0);
-    Serial.println("135 degrees: MOVE SE");
-    break;
+  // case 45: // NE
+  //   setAllDirections(1, 1, 1, 1);
+  //   setAllMotorSpeeds(speed, 0, 0, speed);
+  //   Serial.println("45 degrees: MOVE NE");
+  //   break;
 
-  case 180: // SOUTH
-    setAllDirections(0, 0, 0, 0);
-    setAllMotorSpeeds(speed, speed, speed, speed);
-    Serial.println("180 degrees: MOVE S");
-    break;
+  // case 90: // RIGHT; East
+  //   setAllDirections(1, 0, 0, 1);
+  //   setAllMotorSpeeds(speed, speed, speed, speed);
+  //   Serial.println("90 degrees: MOVE east");
+  //   break;
 
-  case 225: // SW
-    setAllDirections(0, 0, 0, 0);
-    setAllMotorSpeeds(speed, 0, 0, speed);
-    Serial.println("225 degrees: MOVE SW");
-    break;
+  // case 135: // SE
+  //   setAllDirections(0, 0, 0, 0);
+  //   setAllMotorSpeeds(0, speed, speed, 0);
+  //   Serial.println("135 degrees: MOVE SE");
+  //   break;
 
-  case 270: // WEST (left)
-    setAllDirections(0, 1, 1, 0);
-    setAllMotorSpeeds(speed, speed, speed, speed);
-    Serial.println("270 degrees: MOVE W");
-    break;
+  // case 180: // SOUTH
+  //   setAllDirections(0, 0, 0, 0);
+  //   setAllMotorSpeeds(speed, speed, speed, speed);
+  //   Serial.println("180 degrees: MOVE S");
+  //   break;
 
-  case 315: // NW
-    setAllDirections(1, 1, 1, 1);
-    setAllMotorSpeeds(0, speed, speed, 0);
-    Serial.println("315 degrees: MOVE NW");
-    break;
+  // case 225: // SW
+  //   setAllDirections(0, 0, 0, 0);
+  //   setAllMotorSpeeds(speed, 0, 0, speed);
+  //   Serial.println("225 degrees: MOVE SW");
+  //   break;
+
+  // case 270: // WEST (left)
+  //   setAllDirections(0, 1, 1, 0);
+  //   setAllMotorSpeeds(speed, speed, speed, speed);
+  //   Serial.println("270 degrees: MOVE W");
+  //   break;
+
+  // case 315: // NW
+  //   setAllDirections(1, 1, 1, 1);
+  //   setAllMotorSpeeds(0, speed, speed, 0);
+  //   Serial.println("315 degrees: MOVE NW");
+  //   break;
   }
 }
 
