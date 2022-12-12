@@ -13,9 +13,6 @@ HTML510Server h(80);
 const char *ssid = "TEAM HAWAII WIFI";
 const char *password = "borabora";
 
-// I2C for TimeOfFlight Sensor
-SFEVL53L1X distanceSensor;
-
 #define TIME_OF_FLIGHT_0_DEGREES_SCL_GPIO 1
 #define TIME_OF_FLIGHT_0_DEGREES_SDA_GPIO 2
 
@@ -240,7 +237,8 @@ private:
   int degrees_pointing;
   int sda_gpio;
   int scl_gpio;
-  int distance;
+  SFEVL53L1X distanceSensor;
+
 public:
   TimeOfFlight(int degrees_pointing, int sda_gpio, int scl_gpio)
   {
@@ -250,7 +248,7 @@ public:
   }
     void init()
     {
-      Serial.println("Trying to set wire");
+      // SFEVL53L1X distanceSensor; // I2C for TimeOfFlight Sensor
       
       Wire.begin(this->sda_gpio, this->scl_gpio);
 
@@ -270,7 +268,7 @@ public:
       // distanceSensor.setDistanceModeLong();
     }
 
-    int read()
+    int getDistance()
     {
       distanceSensor.startRanging(); // Write configuration bytes to initiate measurement
 
@@ -279,13 +277,13 @@ public:
         delay(1);
       }
 
-      this->distance = distanceSensor.getDistance(); // Get the result of the measurement from the sensor
+      int distance = distanceSensor.getDistance(); // Get the result of the measurement from the sensor
       distanceSensor.clearInterrupt();
       distanceSensor.stopRanging();
 
-      Serial.print("Reading distance"); Serial.println(this->distance);
+      Serial.print("Reading distance"); Serial.println(distance);
 
-      return this->distance;
+      return distance;
     }
 };
 
@@ -362,75 +360,118 @@ void drive(int move_degrees, int look_direction, int speed)
   {
     setAllMotorSpeeds(0, 0, 0, 0);
     Serial.println("STOP");
+    return;
   }
 
   // TURN RIGHT
-  if (look_direction == 1 && move_degrees == -1)
+  if (look_direction == 1)
   { // look right: rotate CW;
     setAllDirections(1, 1, 0, 0);
     setAllMotorSpeeds(speed, speed, speed, speed);
     Serial.println("LOOKING right");
+    return;
   }
 
   // TURN LEFT
-  if (look_direction == -1 && move_degrees == -1)
+  if (look_direction == -1)
   { // look left: rotate CCW;
     setAllDirections(0, 0, 1, 1);
     setAllMotorSpeeds(speed, speed, speed, speed);
     Serial.println("LOOKING left");
+    return;
   }
 
   // MOVE in XY
+
+  // Calculate speed of Back Left motor B and Front Right motor C
+  int speed_BL_B_and_FR_C;
   switch (move_degrees)
   {
-  case 0: // Forward
-    setAllDirections(1, 1, 1, 1);
-    setAllMotorSpeeds(speed, speed, speed, speed);
-    Serial.println("0 degrees: MOVE N");
+  case 0 ... 90:
+    speed_BL_B_and_FR_C = speed - (int) speed * (float) move_degrees / 45.0;
     break;
-
-  case 45: // NE
-    setAllDirections(1, 1, 1, 1);
-    setAllMotorSpeeds(speed, 0, 0, speed);
-    Serial.println("45 degrees: MOVE NE");
+  case 91 ... 180:
+    speed_BL_B_and_FR_C = speed * -1;
     break;
-
-  case 90: // RIGHT; East
-    setAllDirections(1, 0, 0, 1);
-    setAllMotorSpeeds(speed, speed, speed, speed);
-    Serial.println("90 degrees: MOVE east");
+  case 181 ... 270:
+    speed_BL_B_and_FR_C = (int) speed * (float) (move_degrees - 180) / 45.0 - speed;
     break;
-
-  case 135: // SE
-    setAllDirections(0, 0, 0, 0);
-    setAllMotorSpeeds(0, speed, speed, 0);
-    Serial.println("135 degrees: MOVE SE");
-    break;
-
-  case 180: // SOUTH
-    setAllDirections(0, 0, 0, 0);
-    setAllMotorSpeeds(speed, speed, speed, speed);
-    Serial.println("180 degrees: MOVE S");
-    break;
-
-  case 225: // SW
-    setAllDirections(0, 0, 0, 0);
-    setAllMotorSpeeds(speed, 0, 0, speed);
-    Serial.println("225 degrees: MOVE SW");
-    break;
-
-  case 270: // WEST (left)
-    setAllDirections(0, 1, 1, 0);
-    setAllMotorSpeeds(speed, speed, speed, speed);
-    Serial.println("270 degrees: MOVE W");
-    break;
-
-  case 315: // NW
-    setAllDirections(1, 1, 1, 1);
-    setAllMotorSpeeds(0, speed, speed, 0);
-    Serial.println("315 degrees: MOVE NW");
+  case 271 ... 360:
+    speed_BL_B_and_FR_C = speed;
     break;
   }
+
+  // Calculate speed of Front Left motor A and Back Right motor D
+  int speed_FL_A_and_BR_D;
+  switch (move_degrees)
+  {
+  case 0 ... 90:
+    speed_FL_A_and_BR_D = speed;
+    break;
+  case 91 ... 180:
+    speed_FL_A_and_BR_D = speed - (int) speed * (float) (move_degrees - 90) / 45.0;
+    break;
+  case 181 ... 270:
+    speed_FL_A_and_BR_D = speed * -1;
+    break;
+  case 271 ... 360:
+    speed_FL_A_and_BR_D = (int) speed * (float) (move_degrees - 270) / 45.0 - speed;
+    break;
+  }
+
+  setAllDirections(speed_FL_A_and_BR_D > 0, speed_BL_B_and_FR_C > 0, speed_BL_B_and_FR_C > 0, speed_FL_A_and_BR_D > 0);
+  setAllMotorSpeeds(abs(speed_FL_A_and_BR_D), abs(speed_BL_B_and_FR_C), abs(speed_BL_B_and_FR_C), abs(speed_FL_A_and_BR_D));
+  
+  // switch (move_degrees)
+  // {
+  // case 0: // Forward
+  //   setAllDirections(1, 1, 1, 1);
+  //   setAllMotorSpeeds(speed, speed, speed, speed);
+  //   Serial.println("0 degrees: MOVE N");
+  //   break;
+
+  // case 45: // NE
+  //   setAllDirections(1, 1, 1, 1);
+  //   setAllMotorSpeeds(speed, 0, 0, speed);
+  //   Serial.println("45 degrees: MOVE NE");
+  //   break;
+
+  // case 90: // RIGHT; East
+  //   setAllDirections(1, 0, 0, 1);
+  //   setAllMotorSpeeds(speed, speed, speed, speed);
+  //   Serial.println("90 degrees: MOVE east");
+  //   break;
+
+  // case 135: // SE
+  //   setAllDirections(0, 0, 0, 0);
+  //   setAllMotorSpeeds(0, speed, speed, 0);
+  //   Serial.println("135 degrees: MOVE SE");
+  //   break;
+
+  // case 180: // SOUTH
+  //   setAllDirections(0, 0, 0, 0);
+  //   setAllMotorSpeeds(speed, speed, speed, speed);
+  //   Serial.println("180 degrees: MOVE S");
+  //   break;
+
+  // case 225: // SW
+  //   setAllDirections(0, 0, 0, 0);
+  //   setAllMotorSpeeds(speed, 0, 0, speed);
+  //   Serial.println("225 degrees: MOVE SW");
+  //   break;
+
+  // case 270: // WEST (left)
+  //   setAllDirections(0, 1, 1, 0);
+  //   setAllMotorSpeeds(speed, speed, speed, speed);
+  //   Serial.println("270 degrees: MOVE W");
+  //   break;
+
+  // case 315: // NW
+  //   setAllDirections(1, 1, 1, 1);
+  //   setAllMotorSpeeds(0, speed, speed, 0);
+  //   Serial.println("315 degrees: MOVE NW");
+  //   break;
+  // }
 }
 
 // int getRobotOrientationDegrees(ViveSensor ViveRight, ViveSensor ViveLeft)
@@ -562,47 +603,37 @@ void handleStateUpdate()
         'status': 'success', \
         'skip_setup': false, \
         'setup': { \
-          'robot_width': " +
-                         String(ROBOT_WIDTH) + ", \
-          'robot_height': " +
-                         String(ROBOT_HEIGHT) + ", \
+          'robot_width': " + String(ROBOT_WIDTH) + ", \
+          'robot_height': " + String(ROBOT_HEIGHT) + ", \
           'game_width': 366, \
           'game_height': 152 \
         }, \
         'robot': { \
           'x': 100, \
           'y': 50, \
-          'degrees': \
+          'degrees': 0 \
         }, \
         'IR_sensor': { \
           'beacon_700Hz': 1, \
           'beacon_23Hz': 0 \
         }, \
         'ToF_sensor': { \
-          'distance': [" + String(TimeOfFlightDegrees0.read()) + "], \
+          'distance': [" + String(TimeOfFlightDegrees0.getDistance()) + "], \
           'degrees': [0], \
           'time': [0] \
         }, \
         'motors': { \
           'power': { \
-            'front_left_A': " +
-                         String(motorFrontLeftA.getSpeed()) + ", \
-            'back_left_B': " +
-                         String(motorBackLeftB.getSpeed()) + ", \
-            'front_right_C': " +
-                         String(motorFrontRightC.getSpeed()) + ", \
-            'back_right_D': " +
-                         String(motorBackRightD.getSpeed()) + " \
+            'front_left_A': " + String(motorFrontLeftA.getSpeed()) + ", \
+            'back_left_B': " + String(motorBackLeftB.getSpeed()) + ", \
+            'front_right_C': " + String(motorFrontRightC.getSpeed()) + ", \
+            'back_right_D': " + String(motorBackRightD.getSpeed()) + " \
           }, \
           'direction': { \
-            'front_left_A': " +
-                         String(motorFrontLeftA.getDirection()) + ", \
-            'back_left_B': " +
-                         String(motorBackLeftB.getDirection()) + ", \
-            'front_right_C': " +
-                         String(motorFrontRightC.getDirection()) + ", \
-            'back_right_D': " +
-                         String(motorBackRightD.getDirection()) + " \
+            'front_left_A': " + String(motorFrontLeftA.getDirection()) + ", \
+            'back_left_B': " + String(motorBackLeftB.getDirection()) + ", \
+            'front_right_C': " + String(motorFrontRightC.getDirection()) + ", \
+            'back_right_D': " + String(motorBackRightD.getDirection()) + " \
           } \
         } \
       }";
@@ -642,14 +673,15 @@ void setup()
 }
 
 void logicMode(int mode){
-  if (mode == 0) { // Logic for Wall Follow: turn when distance gets <300mm:
-    if (TimeOfFlightDegrees0.read() < 400) {
+  if (mode == 1) { // Logic for Wall Follow: turn when distance gets <300mm:
+    if (TimeOfFlightDegrees0.getDistance() < 400) {
       drive(-1, -1, 4);
     }
     else
     {
       drive(0, 0, 4);
     }
+  } else {
   }
 }
 
@@ -659,5 +691,5 @@ void loop()
 
   delay(10);
 
-  logicMode(0); // 0: Wall Follow
+  logicMode(0); // 0: Nothing. 1: Wall Follow
 }
