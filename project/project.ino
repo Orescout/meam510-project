@@ -13,9 +13,6 @@ HTML510Server h(80);
 const char *ssid = "TEAM HAWAII WIFI";
 const char *password = "borabora";
 
-// I2C for TimeOfFlight Sensor
-SFEVL53L1X distanceSensor;
-
 #define TIME_OF_FLIGHT_0_DEGREES_SCL_GPIO 1
 #define TIME_OF_FLIGHT_0_DEGREES_SDA_GPIO 2
 
@@ -240,7 +237,8 @@ private:
   int degrees_pointing;
   int sda_gpio;
   int scl_gpio;
-  int distance;
+  SFEVL53L1X distanceSensor;
+
 public:
   TimeOfFlight(int degrees_pointing, int sda_gpio, int scl_gpio)
   {
@@ -250,7 +248,7 @@ public:
   }
     void init()
     {
-      Serial.println("Trying to set wire");
+      // SFEVL53L1X distanceSensor; // I2C for TimeOfFlight Sensor
       
       Wire.begin(this->sda_gpio, this->scl_gpio);
 
@@ -270,7 +268,7 @@ public:
       // distanceSensor.setDistanceModeLong();
     }
 
-    int read()
+    int getDistance()
     {
       distanceSensor.startRanging(); // Write configuration bytes to initiate measurement
 
@@ -279,13 +277,13 @@ public:
         delay(1);
       }
 
-      this->distance = distanceSensor.getDistance(); // Get the result of the measurement from the sensor
+      int distance = distanceSensor.getDistance(); // Get the result of the measurement from the sensor
       distanceSensor.clearInterrupt();
       distanceSensor.stopRanging();
 
-      Serial.print("Reading distance"); Serial.println(this->distance);
+      Serial.print("Reading distance"); Serial.println(distance);
 
-      return this->distance;
+      return distance;
     }
 };
 
@@ -473,7 +471,7 @@ void drive(int move_degrees, int look_direction, int speed)
   //   setAllMotorSpeeds(0, speed, speed, 0);
   //   Serial.println("315 degrees: MOVE NW");
   //   break;
-  }
+  // }
 }
 
 // int getRobotOrientationDegrees(ViveSensor ViveRight, ViveSensor ViveLeft)
@@ -605,47 +603,37 @@ void handleStateUpdate()
         'status': 'success', \
         'skip_setup': false, \
         'setup': { \
-          'robot_width': " +
-                         String(ROBOT_WIDTH) + ", \
-          'robot_height': " +
-                         String(ROBOT_HEIGHT) + ", \
+          'robot_width': " + String(ROBOT_WIDTH) + ", \
+          'robot_height': " + String(ROBOT_HEIGHT) + ", \
           'game_width': 366, \
           'game_height': 152 \
         }, \
         'robot': { \
           'x': 100, \
           'y': 50, \
-          'degrees': \
+          'degrees': 0 \
         }, \
         'IR_sensor': { \
           'beacon_700Hz': 1, \
           'beacon_23Hz': 0 \
         }, \
         'ToF_sensor': { \
-          'distance': [" + String(TimeOfFlightDegrees0.read()) + "], \
+          'distance': [" + String(TimeOfFlightDegrees0.getDistance()) + "], \
           'degrees': [0], \
           'time': [0] \
         }, \
         'motors': { \
           'power': { \
-            'front_left_A': " +
-                         String(motorFrontLeftA.getSpeed()) + ", \
-            'back_left_B': " +
-                         String(motorBackLeftB.getSpeed()) + ", \
-            'front_right_C': " +
-                         String(motorFrontRightC.getSpeed()) + ", \
-            'back_right_D': " +
-                         String(motorBackRightD.getSpeed()) + " \
+            'front_left_A': " + String(motorFrontLeftA.getSpeed()) + ", \
+            'back_left_B': " + String(motorBackLeftB.getSpeed()) + ", \
+            'front_right_C': " + String(motorFrontRightC.getSpeed()) + ", \
+            'back_right_D': " + String(motorBackRightD.getSpeed()) + " \
           }, \
           'direction': { \
-            'front_left_A': " +
-                         String(motorFrontLeftA.getDirection()) + ", \
-            'back_left_B': " +
-                         String(motorBackLeftB.getDirection()) + ", \
-            'front_right_C': " +
-                         String(motorFrontRightC.getDirection()) + ", \
-            'back_right_D': " +
-                         String(motorBackRightD.getDirection()) + " \
+            'front_left_A': " + String(motorFrontLeftA.getDirection()) + ", \
+            'back_left_B': " + String(motorBackLeftB.getDirection()) + ", \
+            'front_right_C': " + String(motorFrontRightC.getDirection()) + ", \
+            'back_right_D': " + String(motorBackRightD.getDirection()) + " \
           } \
         } \
       }";
@@ -685,14 +673,15 @@ void setup()
 }
 
 void logicMode(int mode){
-  if (mode == 0) { // Logic for Wall Follow: turn when distance gets <300mm:
-    if (TimeOfFlightDegrees0.read() < 400) {
+  if (mode == 1) { // Logic for Wall Follow: turn when distance gets <300mm:
+    if (TimeOfFlightDegrees0.getDistance() < 400) {
       drive(-1, -1, 4);
     }
     else
     {
       drive(0, 0, 4);
     }
+  } else {
   }
 }
 
@@ -702,5 +691,5 @@ void loop()
 
   delay(10);
 
-  logicMode(0); // 0: Wall Follow
+  logicMode(0); // 0: Nothing. 1: Wall Follow
 }
