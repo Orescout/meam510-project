@@ -36,8 +36,8 @@ const char *password = "borabora";
 #define MOTOR_D_GPIO_ONE 12
 #define MOTOR_D_GPIO_TWO 11
 
-#define INFRARED_RECEIVER_700HZ_GPIO 4 // TODO: JD
-#define INFRARED_RECEIVER_23HZ_GPIO 5  // TODO: JD
+#define INFRARED_RECEIVER_GPIO 33 
+//#define INFRARED_RECEIVER_23HZ_GPIO 21  // TODO: JD
 
 #define VIVE_RIGHT_GPIO 7 // TODO: Sophie
 #define VIVE_LEFT_GPIO 6  // TODO: Sophie
@@ -204,31 +204,69 @@ Motor motorBackRightD(PWM_CH_D, MOTOR_D_GPIO_ONE, MOTOR_D_GPIO_TWO, ENCODER_GPIO
 class InfraredReceiver
 {
 private:
-  int hertz;
-  int gpio;
-  int see_something;
+  int IR_gpio;
 
 public:
-  InfraredReceiver(int hertz, int gpio)
+  InfraredReceiver(int IR_gpio)
   {
-        this->hertz = hertz;
-        this->gpio = gpio;
+        this->IR_gpio = IR_gpio;
 
         init();
   }
     void init()
     {
-        this->see_something = 0;
+      //assigning input pin from IR sensor board
+      pinMode(this->IR_gpio, INPUT);
 
-        // Set GPIO pin
-        // TODO: JD
     }
 
-    int read()
+    //reads given frequency input
+    //frequency_search is the desired frequency(23 or 700)
+    //outputs a 1 if that frequency_search you want is found, 0 if not
+    int read(int frequency_search)
     {
-        // TODO: JD
-        // this->see_something = digitalRead(this->gpio);
-        return this->see_something;
+      //used to calculate frequency
+      float frequency;
+      //both used for calculating frequency
+      float current_time;
+      float first_low_time;
+      //1 is if the signal is high, 0 is if its low
+      int signal_state = 1;
+
+      
+      //calculating the frequency
+      for (int i = 1; i < 50; ++i) {
+        current_time = millis();
+
+        //read for a high signal
+        if(digitalRead(this->IR_gpio)) {
+            if (signal_state == 0) {
+              //calculate length of half a period
+              frequency = current_time - first_low_time;
+
+              //assign frequency based off of frequency
+              //700 Hz
+              if (frequency < 15 && frequency_search == 700) {
+                return 1;
+              }
+              //23Hz
+              if (frequency > 15 && frequency < 50 && frequency_search == 23) {
+                return 1;
+              }
+          }
+          signal_state = 1;
+
+        } else {
+          //mark the time when the signal is first low
+          if (signal_state) {
+            first_low_time = millis();
+          }
+          signal_state = 0;
+        }
+        delay(1);
+      }
+      //if no signal found return 0
+      return 0;
     }
 };
 
@@ -496,7 +534,7 @@ void drive(int move_degrees, int look_direction, int speed)
 //   return 0;
 // }
 
-// InfraredReceiver InfraredReceiver700Hz(700, INFRARED_RECEIVER_700HZ_GPIO);
+InfraredReceiver InfraredReceiverCenter(INFRARED_RECEIVER_GPIO);
 // InfraredReceiver InfraredReceiver23Hz(23, INFRARED_RECEIVER_23HZ_GPIO);
 
 // ViveSensor ViveRight(1, VIVE_RIGHT_GPIO);
@@ -622,8 +660,8 @@ void handleStateUpdate()
           'degrees': 0 \
         }, \
         'IR_sensor': { \
-          'beacon_700Hz': 1, \
-          'beacon_23Hz': 0 \
+          'beacon_700Hz': " + String(InfraredReceiverCenter.read(700)) + ", \
+          'beacon_23Hz': " + String(InfraredReceiverCenter.read(23)) + " \
         }, \
         'ToF_sensor': { \
           'distance': [" + String(TimeOfFlightDegrees0.getDistance()) + "], \
@@ -648,8 +686,8 @@ void handleStateUpdate()
 
   response_json.replace(" ", "");
 
-  Serial.print("Sending to web this: ");
-  Serial.println(response_json);
+  // Serial.print("Sending to web this: ");
+  // Serial.println(response_json);
 
   h.sendplain(response_json);
 }
@@ -702,6 +740,9 @@ void loop()
   h.serve(); // listen to the frontend commands
 
   delay(10);
+  // Serial.print("Read 23: ");
+  // Serial.println(InfraredReceiverCenter.read(23));
+  // Serial.print("Read 700: ");
+  // Serial.println(InfraredReceiverCenter.read(700));
 
-  logicMode(0); // 0: Nothing. 1: Wall Follow
 }
