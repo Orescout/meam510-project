@@ -1,4 +1,4 @@
-// Libraries to import
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LIBRARIES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #include "body.h"
 #include "html510.h"
 #include "Libraries/ArduinoJson.h"
@@ -74,6 +74,8 @@ float tick = 0.0;
 #define ROBOT_HEIGHT 28
 // Length of course: 357cm
 // Width of course: 145cm
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ CLASSES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // Class for our Motors
 class Motor
@@ -368,6 +370,8 @@ public:
     }
 };
 
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 void println(int x)
 {
   Serial.println(x);
@@ -649,6 +653,10 @@ void handleStateUpdate()
         'robot': { \
           'x': 100, \
           'y': 50, \
+          'raw_left_x': 50, \
+          'raw_right_x': 60, \
+          'raw_left_y': 3000, \
+          'raw_right_y': 3100, \
           'degrees': 0 \
         }, \
         'IR_sensor': { \
@@ -684,6 +692,21 @@ void handleStateUpdate()
   h.sendplain(response_json);
 }
 
+void logicMode(int mode){
+  if (mode == 1) { // Logic for Wall Follow: turn when distance gets <300mm:
+    if (TimeOfFlightDegrees0.getDistance() < 400) {
+      drive(-1, -1, 4);
+    }
+    else
+    {
+      drive(0, 0, 4);
+    }
+  } else {
+  }
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SETUP FUNCTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 void setup()
 {
   Serial.begin(115200);
@@ -710,18 +733,7 @@ void setup()
   TimeOfFlightDegrees0.init();
 }
 
-void logicMode(int mode){
-  if (mode == 1) { // Logic for Wall Follow: turn when distance gets <300mm:
-    if (TimeOfFlightDegrees0.getDistance() < 400) {
-      drive(-1, -1, 4);
-    }
-    else
-    {
-      drive(0, 0, 4);
-    }
-  } else {
-  }
-}
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LOOP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 void loop()
 {
