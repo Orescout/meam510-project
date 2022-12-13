@@ -201,74 +201,74 @@ Motor motorFrontRightC(PWM_CH_C, MOTOR_C_GPIO_ONE, MOTOR_C_GPIO_TWO, ENCODER_GPI
 Motor motorBackRightD(PWM_CH_D, MOTOR_D_GPIO_ONE, MOTOR_D_GPIO_TWO, ENCODER_GPIO_D, DIRECTION_D);
 
 // Class for our Infrared receivers
-class InfraredReceiver
-{
-private:
-  int IR_gpio;
+// class InfraredReceiver
+// {
+// private:
+//   int IR_gpio;
 
-public:
-  InfraredReceiver(int IR_gpio)
-  {
-        this->IR_gpio = IR_gpio;
+// public:
+//   InfraredReceiver(int IR_gpio)
+//   {
+//         this->IR_gpio = IR_gpio;
 
-        init();
-  }
-    void init()
-    {
-      //assigning input pin from IR sensor board
-      pinMode(this->IR_gpio, INPUT);
+//         init();
+//   }
+//     void init()
+//     {
+//       //assigning input pin from IR sensor board
+//       pinMode(this->IR_gpio, INPUT);
 
-    }
+//     }
 
-    //reads given frequency input
-    //frequency_search is the desired frequency(23 or 700)
-    //outputs a 1 if that frequency_search you want is found, 0 if not
-    int read(int frequency_search)
-    {
-      //used to calculate frequency
-      float frequency;
-      //both used for calculating frequency
-      float current_time;
-      float first_low_time;
-      //1 is if the signal is high, 0 is if its low
-      int signal_state = 1;
+//     //reads given frequency input
+//     //frequency_search is the desired frequency(23 or 700)
+//     //outputs a 1 if that frequency_search you want is found, 0 if not
+//     int read(int frequency_search)
+//     {
+//       //used to calculate frequency
+//       float frequency;
+//       //both used for calculating frequency
+//       float current_time;
+//       float first_low_time;
+//       //1 is if the signal is high, 0 is if its low
+//       int signal_state = 1;
 
       
-      //calculating the frequency
-      for (int i = 1; i < 50; ++i) {
-        current_time = millis();
+//       //calculating the frequency
+//       for (int i = 1; i < 50; ++i) {
+//         current_time = millis();
 
-        //read for a high signal
-        if(digitalRead(this->IR_gpio)) {
-            if (signal_state == 0) {
-              //calculate length of half a period
-              frequency = current_time - first_low_time;
+//         //read for a high signal
+//         if(digitalRead(this->IR_gpio)) {
+//             if (signal_state == 0) {
+//               //calculate length of half a period
+//               frequency = current_time - first_low_time;
 
-              //assign frequency based off of frequency
-              //700 Hz
-              if (frequency < 15 && frequency_search == 700) {
-                return 1;
-              }
-              //23Hz
-              if (frequency > 15 && frequency < 50 && frequency_search == 23) {
-                return 1;
-              }
-          }
-          signal_state = 1;
+//               //assign frequency based off of frequency
+//               //700 Hz
+//               if (frequency < 15 && frequency_search == 700) {
+//                 return 1;
+//               }
+//               //23Hz
+//               if (frequency > 15 && frequency < 50 && frequency_search == 23) {
+//                 return 1;
+//               }
+//           }
+//           signal_state = 1;
 
-        } else {
-          //mark the time when the signal is first low
-          if (signal_state) {
-            first_low_time = millis();
-          }
-          signal_state = 0;
-        }
-        delay(1);
-      }
-      //if no signal found return 0
-      return 0;
-    }
-};
+//         } else {
+//           //mark the time when the signal is first low
+//           if (signal_state) {
+//             first_low_time = millis();
+//           }
+//           signal_state = 0;
+//         }
+//         delay(1);
+//       }
+//       //if no signal found return 0
+//       return 0;
+//     }
+// };
 
 // Class for our Time Of Flight distance sensors
 class TimeOfFlight
@@ -534,8 +534,7 @@ void drive(int move_degrees, int look_direction, int speed)
 //   return 0;
 // }
 
-InfraredReceiver InfraredReceiverCenter(INFRARED_RECEIVER_GPIO);
-// InfraredReceiver InfraredReceiver23Hz(23, INFRARED_RECEIVER_23HZ_GPIO);
+// InfraredReceiver InfraredReceiverCenter(INFRARED_RECEIVER_GPIO);
 
 // ViveSensor ViveRight(1, VIVE_RIGHT_GPIO);
 // ViveSensor ViveLeft(0, VIVE_LEFT_GPIO);
@@ -660,8 +659,8 @@ void handleStateUpdate()
           'degrees': 0 \
         }, \
         'IR_sensor': { \
-          'beacon_700Hz': " + String(InfraredReceiverCenter.read(700)) + ", \
-          'beacon_23Hz': " + String(InfraredReceiverCenter.read(23)) + " \
+          'beacon_700Hz': 0, \
+          'beacon_23Hz': 0 \
         }, \
         'ToF_sensor': { \
           'distance': [" + String(TimeOfFlightDegrees0.getDistance()) + "], \
