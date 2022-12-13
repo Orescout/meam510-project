@@ -201,7 +201,7 @@ const char body[] PROGMEM = R"===(
 
   <canvas class="canvas" id="canvas-background" width="705" height="285" style="border:1px solid #ffffff;"></canvas>
   <canvas class="canvas" id="canvas-robot" width="705" height="285"></canvas>
-  <canvas class="canvas-vive-raw" id="canvas-vive-raw" width="500" height="500" style="border:1px solid #ffa9a9;"></canvas>
+  <canvas class="canvas-vive-raw" id="canvas-vive-raw" width="700" height="700" style="border:1px solid #ffa9a9;"></canvas>
 
 </body>
 
@@ -463,6 +463,21 @@ const char body[] PROGMEM = R"===(
     context_raw_vive.fillStyle = "rgba(0, 255, 255, 1)";
     context_raw_vive.fillRect(Math.round(raw_right_x / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(raw_right_y / 10), 5, 5);
     
+    // Plot corners CHANGE HERE SOPHIE
+    context_raw_vive.fillStyle = "rgba(0, 0, 255, 1)";
+    context_raw_vive.fillRect(Math.round(6351 / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(3200/ 10), 5, 5);
+    context_raw_vive.fillRect(Math.round(3602 / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(3607 / 10), 5, 5);
+
+    context_raw_vive.fillRect(Math.round(1333 / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(4570 / 10), 5, 5);
+    context_raw_vive.fillRect(Math.round(1311 / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(4974 / 10), 5, 5);
+
+    context_raw_vive.fillRect(Math.round(1506 / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(2371 / 10), 5, 5);
+    context_raw_vive.fillRect(Math.round(1479 / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(2700 / 10), 5, 5);
+
+    context_raw_vive.fillRect(Math.round(6211/ 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(5431/ 10), 5, 5);
+    context_raw_vive.fillRect(Math.round(6178 / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(5698 / 10), 5, 5);
+
+
   }
 
 </script>
