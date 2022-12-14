@@ -351,7 +351,7 @@ public:
 
     int getX()
     {
-      int x_raw_coordinate = -1; // If shit goes to hell, the value is -1.
+      int x_raw_coordinate = 0; // If shit goes to hell, the value is -1.
 
       if (viveObject.status() == VIVE_RECEIVING)
       {
