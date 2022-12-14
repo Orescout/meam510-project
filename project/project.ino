@@ -614,43 +614,21 @@ int med3Filt(int a, int b, int c)
   return mid;
 }
 
+int lx = 0;
+int ly = 0;
+int rx = 0;
+int ry = 0;
+
 int getVive(int viveCoord)
 {
-  /*
-  Serial.print("VIVE STATUS:");
-  Serial.println(vive.status());
-  if (vive.status() == VIVE_RECEIVING)
-  {
-    int v = vive.xCoord();
-    Serial.println(v);
-    return v;
-  }
-  else
-  {
-    switch (vive.sync(5))
-    {
-      break;
-    case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
-      Serial.println("Left vive: weak signal");
-      break;
-    default:
-    case VIVE_NO_SIGNAL: // nothing detected
-      Serial.println("Left vive: no signal");
-    }
-    return 0;
-  }
-  */
-  // copied from sophie's code
   int avg_lx = 0;
   int avg_ly = 0;
   int avg_rx = 0;
   int avg_ry = 0;
-  Serial.println("inside getVive f'n");
+  
   switch (viveCoord)
   {
   case LEFT_X:
-    Serial.print("VIVELEFT_X STATUS:");
-    Serial.println(viveLeft.status());
     if (viveLeft.status() == VIVE_RECEIVING)
     {
       // implement med filter
@@ -686,7 +664,7 @@ int getVive(int viveCoord)
       int r2 = viveLeft.yCoord();
       int r3 = viveLeft.yCoord();
       avg_ly = med3Filt(r1, r2, r3);
-      Serial.printf("LeftY %d ", avg_ly);
+      Serial.printf("         LeftY %d ", avg_ly);
       return avg_ly;
     }
     else
@@ -713,7 +691,7 @@ int getVive(int viveCoord)
       int r2 = viveRight.xCoord();
       int r3 = viveRight.xCoord();
       avg_rx = med3Filt(r1, r2, r3);
-      Serial.printf("RightX %d ", avg_rx);
+      Serial.printf("                            RightX %d ", avg_rx);
       return avg_rx;
     }
     else
@@ -741,7 +719,7 @@ int getVive(int viveCoord)
       int r2 = viveRight.yCoord();
       int r3 = viveRight.yCoord();
       avg_ry = med3Filt(r1, r2, r3);
-      Serial.printf("RightY %d ", avg_ry);
+      Serial.printf("                                                          RightY %d ", avg_ry);
       return avg_ry;
     }
     else
@@ -880,14 +858,10 @@ void handleStateUpdate()
         'robot': { \
           'x': 100, \
           'y': 50, \
-          'raw_left_x': " +
-                         String(getVive(LEFT_X)) + ", \
-          'raw_right_x':  " +
-                         String(getVive(RIGHT_X)) + ", \
-          'raw_left_y':  " +
-                         String(getVive(LEFT_Y)) + ", \
-          'raw_right_y':  " +
-                         String(getVive(RIGHT_Y)) + ", \
+          'raw_left_x': " + String(lx) + ", \
+          'raw_right_x':  " + String(rx) + ", \
+          'raw_left_y':  " + String(ly) + ", \
+          'raw_right_y':  " + String(ry) + ", \
           'degrees': 0 \
         }, \
         'IR_sensor': { \
@@ -986,11 +960,11 @@ void setup()
 
 void loop()
 {
-  int lx = getVive(LEFT_X);
-  int ly = getVive(LEFT_Y);
-  int rx = getVive(RIGHT_X);
-  int ry = getVive(RIGHT_Y);
+  lx = getVive(LEFT_X);
+  ly = getVive(LEFT_Y);
+  rx = getVive(RIGHT_X);
+  ry = getVive(RIGHT_Y);
 
-  // h.serve(); // listen to the frontend commands
-  delay(20);
+  h.serve(); // listen to the frontend commands
+  // delay(20);
 }
