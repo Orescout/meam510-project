@@ -1,9 +1,10 @@
-// Libraries to import
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LIBRARIES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #include "body.h"
 #include "html510.h"
 #include "Libraries/ArduinoJson.h"
 #include <Wire.h>
 #include "SparkFun_VL53L1X.h"
+#include "vive510.h"
 
 // Hello!
 
@@ -39,8 +40,8 @@ const char *password = "borabora";
 #define INFRARED_RECEIVER_GPIO 33 
 //#define INFRARED_RECEIVER_23HZ_GPIO 21  // TODO: JD
 
-#define VIVE_RIGHT_GPIO 7 // TODO: Sophie
-#define VIVE_LEFT_GPIO 6  // TODO: Sophie
+#define VIVE_RIGHT_GPIO 20
+#define VIVE_LEFT_GPIO 19
 
 // encoder pins
 #define ENCODER_GPIO_A 1
@@ -74,6 +75,8 @@ float tick = 0.0;
 #define ROBOT_HEIGHT 28
 // Length of course: 357cm
 // Width of course: 145cm
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ CLASSES ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // Class for our Motors
 class Motor
@@ -338,6 +341,7 @@ public:
    }
 };
 
+
 // Class for our Time Of Flight distance sensors
 class TimeOfFlight
 {
@@ -399,44 +403,93 @@ public:
 class ViveSensor
 {
 private:
-  int right;
+  int is_the_left_sensor;
   int gpio;
+  Vive510 viveObject; // Creating the object with dummy pin which we'll change later! Don't worry!
 
 public:
-  ViveSensor(int right, int gpio)
+  ViveSensor(int is_the_left_sensor, int gpio)
   {
-    this->right = right;
+    this->is_the_left_sensor = is_the_left_sensor;
     this->gpio = gpio;
 
     init();
   }
     void init()
     {
-      // Set GPIO pins
-      // TODO: Sophie
-    }
-
-    int translateX(int x){
-      // TODO: Sophie
-      return 0;
-    }
-
-    int translateY(int y){
-      // TODO: Sophie
-      return 0;
+      viveObject.begin(gpio); // Sets pin as input
     }
 
     int getX()
     {
-      // TODO: Sophie
-      return 0;
+      int x_raw_coordinate = 0; // If shit goes to hell, the value is -1.
+
+      if (viveObject.status() == VIVE_RECEIVING)
+      {
+        x_raw_coordinate = viveObject.xCoord(); // TODO: Capture better xCoord in function.
+      }
+      else
+      {
+        switch (viveObject.sync(5)) // We didn't get a read. Repeats X times syncing.
+        {
+          case VIVE_SYNC_ONLY:                // missing sweep pulses (signal weak)
+            Serial.println("Left vive: weak signal");
+            break;
+
+          case VIVE_NO_SIGNAL:                // nothing detected
+            Serial.println("Left vive: no signal");
+            break;
+          
+          case VIVE_RECEIVING:                // got good signal finally. yay!
+            x_raw_coordinate = viveObject.xCoord();
+            Serial.println("Got valid signal after 5 repettitions");
+            break;
+
+          default:
+            Serial.print("Code return doesn't make sense. It may have worked?"); // TODO: UNDERSTAND WHATS GOING ON HERE IF THIS GETS PRINTED!!
+            break;
+          }
+      }
+
+      return x_raw_coordinate;
     }
 
-    int getY() {
-      // TODO: Sophie
-      return 0;
+    int getY()
+    {
+      int y_raw_coordinate = -1; // If shit goes to hell, the value is -1.
+      
+      if (viveObject.status() == VIVE_RECEIVING)
+      {
+        y_raw_coordinate = viveObject.yCoord();
+      }
+      else
+      {
+        switch (viveObject.sync(5)) // Repeats X times syncing.
+        {
+          case VIVE_SYNC_ONLY:                // missing sweep pulses (signal weak)
+            Serial.println("Left vive: weak signal");
+            break;
+
+          case VIVE_NO_SIGNAL:                // nothing detected
+            Serial.println("Left vive: no signal");
+            break;
+          
+          case VIVE_RECEIVING:                // got good signal finally. yay!
+            y_raw_coordinate = viveObject.yCoord();
+            Serial.println("Got valid signal after 5 repettitions");
+            break;
+
+          default:
+            Serial.print("Code return doesn't make sense. It may have worked?"); // TODO: UNDERSTAND WHATS GOING ON HERE IF THIS GETS PRINTED!!
+            break;
+          }
+      }
+
+      return y_raw_coordinate;
     }
 };
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 void println(int x)
 {
@@ -600,11 +653,10 @@ void drive(int move_degrees, int look_direction, int speed)
 //   return 0;
 // }
 
-InfraredReceiver InfraredReceiverCenter(INFRARED_RECEIVER_GPIO);
-// InfraredReceiver InfraredReceiver23Hz(23, INFRARED_RECEIVER_23HZ_GPIO);
+// InfraredReceiver InfraredReceiverCenter(INFRARED_RECEIVER_GPIO);
 
-// ViveSensor ViveRight(1, VIVE_RIGHT_GPIO);
-// ViveSensor ViveLeft(0, VIVE_LEFT_GPIO);
+ViveSensor ViveRight(0, VIVE_RIGHT_GPIO);
+ViveSensor ViveLeft(1, VIVE_LEFT_GPIO);
 
 TimeOfFlight TimeOfFlightDegrees0(0, TIME_OF_FLIGHT_0_DEGREES_SDA_GPIO, TIME_OF_FLIGHT_0_DEGREES_SCL_GPIO);
 
@@ -719,6 +771,10 @@ void handleStateUpdate()
         'robot': { \
           'x': 100, \
           'y': 50, \
+          'raw_left_x': " + String(ViveLeft.getX()) + ", \
+          'raw_right_x': " + String(ViveRight.getX()) + ", \
+          'raw_left_y': " + String(ViveLeft.getY()) + ", \
+          'raw_right_y': " + String(ViveRight.getY()) + ", \
           'degrees': 0 \
         }, \
         'IR_sensor': { \
@@ -754,6 +810,21 @@ void handleStateUpdate()
   h.sendplain(response_json);
 }
 
+void logicMode(int mode){
+  if (mode == 1) { // Logic for Wall Follow: turn when distance gets <300mm:
+    if (TimeOfFlightDegrees0.getDistance() < 400) {
+      drive(-1, -1, 4);
+    }
+    else
+    {
+      drive(0, 0, 4);
+    }
+  } else {
+  }
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SETUP FUNCTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 void setup()
 {
   Serial.begin(115200);
@@ -780,18 +851,7 @@ void setup()
   TimeOfFlightDegrees0.init();
 }
 
-void logicMode(int mode){
-  if (mode == 1) { // Logic for Wall Follow: turn when distance gets <300mm:
-    if (TimeOfFlightDegrees0.getDistance() < 400) {
-      drive(-1, -1, 4);
-    }
-    else
-    {
-      drive(0, 0, 4);
-    }
-  } else {
-  }
-}
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LOOP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 void loop()
 {
@@ -799,5 +859,6 @@ void loop()
 
    InfraredReceiverCenter.measure700();
    InfraredReceiverCenter.measure23();
+
 
 }
