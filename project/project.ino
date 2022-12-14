@@ -653,7 +653,7 @@ void drive(int move_degrees, int look_direction, int speed)
 //   return 0;
 // }
 
-// InfraredReceiver InfraredReceiverCenter(INFRARED_RECEIVER_GPIO);
+InfraredReceiver InfraredReceiverCenter(INFRARED_RECEIVER_GPIO);
 
 ViveSensor ViveRight(0, VIVE_RIGHT_GPIO);
 ViveSensor ViveLeft(1, VIVE_LEFT_GPIO);
@@ -859,6 +859,6 @@ void loop()
 
    InfraredReceiverCenter.measure700();
    InfraredReceiverCenter.measure23();
-
+  
 
 }
