@@ -26,6 +26,10 @@ Vive510::Vive510(int pin) {
   m_pin = pin;
 }
 
+Vive510::Vive510() { // No arguments vive constructor added by Orestis. Sets pin to arbitrary any pin, say 18. TODO: Try not setting pin at all. taht'll be better.
+  m_pin = 18;
+}
+
 void IRAM_ATTR Vive510::pulseISR(uint32_t us) {
     if (digitalRead(m_pin)==HIGH) {
       m_usRising = us;
