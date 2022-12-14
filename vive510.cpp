@@ -9,7 +9,7 @@
  */
 
 #include "vive510.h"
-#define DEBUG //uncomment to view print statements
+//#define DEBUG //uncomment to view print statements
 // #define DEBUG2
 
 portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
@@ -65,7 +65,7 @@ int Vive510::isJPulse(uint32_t pulsewidth){
 
 void Vive510::processPulse() {
   if (m_lastFalling != m_usFalling) {
-    int pulsewidth = m_usFalling-m_usRising - 3;//ST edit after ED discussion; //TODO: test out other values eg. -4 and -5, depends on circuit and amt of ambient life
+    int pulsewidth = m_usFalling-m_usRising - 0;//ST edit after ED discussion; //TODO: test out other values eg. -4 and -5, depends on circuit and amt of ambient life
     
     if (pulsewidth > m_sweepWidth) {
       if (pulsewidth > 145) { //pulse too long. bad pulse
