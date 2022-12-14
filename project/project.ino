@@ -202,74 +202,145 @@ Motor motorFrontRightC(PWM_CH_C, MOTOR_C_GPIO_ONE, MOTOR_C_GPIO_TWO, ENCODER_GPI
 Motor motorBackRightD(PWM_CH_D, MOTOR_D_GPIO_ONE, MOTOR_D_GPIO_TWO, ENCODER_GPIO_D, DIRECTION_D);
 
 // Class for our Infrared receivers
-// class InfraredReceiver
-// {
-// private:
-//   int IR_gpio;
+class InfraredReceiver
+{
+private:
+  int IR_gpio;
+  int signal_state_700;
+  float frequency_700;
+  float current_time_700;
+  float first_low_time_700;
+  int signal_state_23;
+  float frequency_23;
+  float current_time_23;
+  float first_low_time_23;
 
-// public:
-//   InfraredReceiver(int IR_gpio)
-//   {
-//         this->IR_gpio = IR_gpio;
+  int signal_700_present;
+  int signal_23_present;
 
-//         init();
-//   }
-//     void init()
-//     {
-//       //assigning input pin from IR sensor board
-//       pinMode(this->IR_gpio, INPUT);
+public:
+  InfraredReceiver(int IR_gpio)
+  {
+        this->IR_gpio = IR_gpio;
 
-//     }
+        init();
+  }
+    void init()
+    {
+      //assigning input pin from IR sensor board
+      pinMode(this->IR_gpio, INPUT);
 
-//     //reads given frequency input
-//     //frequency_search is the desired frequency(23 or 700)
-//     //outputs a 1 if that frequency_search you want is found, 0 if not
-//     int read(int frequency_search)
-//     {
-//       //used to calculate frequency
-//       float frequency;
-//       //both used for calculating frequency
-//       float current_time;
-//       float first_low_time;
-//       //1 is if the signal is high, 0 is if its low
-//       int signal_state = 1;
+      //1 is if the signal is high, 0 is if its low
+      this->signal_state_700 = 1;
+      this->signal_state_23 = 1;
 
-      
-//       //calculating the frequency
-//       for (int i = 1; i < 50; ++i) {
-//         current_time = millis();
+      //used to calculate frequency
+      this->frequency_700;
+      this->frequency_23;
 
-//         //read for a high signal
-//         if(digitalRead(this->IR_gpio)) {
-//             if (signal_state == 0) {
-//               //calculate length of half a period
-//               frequency = current_time - first_low_time;
+      //both used for calculating frequency
+      this->current_time_700;
+      this->current_time_23;
+      this->first_low_time_700;
+      this->first_low_time_23;
 
-//               //assign frequency based off of frequency
-//               //700 Hz
-//               if (frequency < 15 && frequency_search == 700) {
-//                 return 1;
-//               }
-//               //23Hz
-//               if (frequency > 15 && frequency < 50 && frequency_search == 23) {
-//                 return 1;
-//               }
-//           }
-//           signal_state = 1;
+      //storing what signals are present
+      this->signal_700_present = 0;
+      this->signal_23_present = 0;
+    }
 
-//         } else {
-//           //mark the time when the signal is first low
-//           if (signal_state) {
-//             first_low_time = millis();
-//           }
-//           signal_state = 0;
-//         }
-//         delay(1);
-//       }
-//       //if no signal found return 0
-//       return 0;
-//     }
-// };
+    //outputs a 1 if 700 Hz is found
+    //outputs a 0 if a 700 Hz signal is not there
+    //outputs a 2 if no output(calculating in between outputs of 1 and 0)
+    void measure700()
+    {
+      current_time_700 = millis();
+      //calculate length of half a period
+      frequency_700 = current_time_700 - first_low_time_700;
+
+      //read for low to high movement
+      if(digitalRead(this->IR_gpio) && signal_state_700 == 0) {
+        //signal is high
+        signal_state_700 = 1;
+
+        //period right length for 700Hz
+        if (frequency_700 < 15) {
+          //Serial.println("700Hz");
+          signal_700_present = 1;
+        }
+
+      //looks for going from high to low
+      } else if (digitalRead(this->IR_gpio) == 0) {
+         //mark the time when the signal is first low
+         if (signal_state_700) {
+          first_low_time_700 = millis();
+         }
+        signal_state_700 = 0;
+       } else if (digitalRead(this->IR_gpio)) {
+        //signal is high
+        signal_state_700 = 1;
+
+        if (frequency_700 >= 15) {
+          //no 700Hz signal
+          signal_700_present = 0;
+        }
+       }
+   }
+
+
+
+
+    //outputs a 1 if 23 Hz is found
+    //outputs a 0 if a 23 Hz signal is not there
+    //outputs a 2 if no output(calculating in between outputs of 1 and 0)
+    void measure23()
+    {
+      current_time_23 = millis();
+      //calculate length of half a period
+      frequency_23 = current_time_23 - first_low_time_23;
+
+      //read for low to high movement
+      if(digitalRead(this->IR_gpio) && signal_state_23 == 0) {
+        //signal is high
+        signal_state_23 = 1;
+
+        //period right length for 23Hz
+        if (frequency_23 > 15 && frequency_23 < 55) {
+          //Serial.print("Freq: ");
+          //Serial.println(frequency_23);
+          signal_23_present = 1;
+        }
+
+      //looks for going from high to low
+      } else if (digitalRead(this->IR_gpio) == 0) {
+         //mark the time when the signal is first low
+         if (signal_state_23) {
+          first_low_time_23 = millis();
+         }
+        signal_state_23 = 0;
+       } else if (digitalRead(this->IR_gpio)) {
+        //signal is high
+        signal_state_23 = 1;
+
+        if (frequency_23 >= 55 || frequency_23 <= 15) {
+          //no 23Hz signal
+          //Serial.println("no 23Hz signal");
+          signal_23_present = 0;
+        }
+       }
+   }
+
+   int readIR700() 
+   {
+      return signal_700_present;
+   }
+
+   int readIR23() 
+   {
+      return signal_23_present;
+   }
+};
+
 
 // Class for our Time Of Flight distance sensors
 class TimeOfFlight
@@ -707,8 +778,8 @@ void handleStateUpdate()
           'degrees': 0 \
         }, \
         'IR_sensor': { \
-          'beacon_700Hz': 0, \
-          'beacon_23Hz': 0 \
+          'beacon_700Hz': " + String(InfraredReceiverCenter.readIR700()) + ", \
+          'beacon_23Hz': " + String(InfraredReceiverCenter.readIR23()) + " \
         }, \
         'ToF_sensor': { \
           'distance': [" + String(TimeOfFlightDegrees0.getDistance()) + "], \
@@ -786,6 +857,8 @@ void loop()
 {
   h.serve(); // listen to the frontend commands
 
-  // delay(10);
+   InfraredReceiverCenter.measure700();
+   InfraredReceiverCenter.measure23();
+
 
 }
