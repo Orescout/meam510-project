@@ -723,7 +723,7 @@ void handleStateUpdate()
         }, \
         'IR_sensor': { \
           'beacon_700Hz': " + String(InfraredReceiverCenter.readIR700()) + ", \
-          'beacon_23Hz': " + String(InfraredReceiverCenter.readIR700()) + " \
+          'beacon_23Hz': " + String(InfraredReceiverCenter.readIR23()) + " \
         }, \
         'ToF_sensor': { \
           'distance': [" + String(TimeOfFlightDegrees0.getDistance()) + "], \
@@ -799,10 +799,5 @@ void loop()
 
    InfraredReceiverCenter.measure700();
    InfraredReceiverCenter.measure23();
-
-   //Serial.print("Read23: ");
-   //Serial.println(InfraredReceiverCenter.readIR23());
-   //Serial.print("Read700: ");
-   Serial.println(InfraredReceiverCenter.readIR700());
 
 }
