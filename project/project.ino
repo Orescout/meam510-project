@@ -5,14 +5,35 @@
 #include <Wire.h>
 #include "SparkFun_VL53L1X.h"
 #include "vive510.h"
+#include <esp_now.h>
 
-// Hello!
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ESPNOW SENDER SETUP: copied from canvas~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#define CHANNEL 1                  // channel can be 1 to 14, channel 0 means current channel.  
+#define MAC_RECV  {0x84,0xF7,0x03,0xA8,0xBE,0x30} // receiver MAC address (last digit should be even for STA)
 
-HTML510Server h(80);
+esp_now_peer_info_t staffcomm = {
+  .peer_addr = {0x84,0xF7,0x03,0xA9,0x04,0x78}, 
+  .channel = 1,             // channel can be 1 to 14, channel 0 means current channel.
+  .encrypt = false,
+};
+
+//game sender to required staff: taken from game-sender.ino code
+void pingstaff() {
+  uint8_t teamNum = 30;
+  esp_now_send(staffcomm.peer_addr, &teamNum, 1);     
+}
+
+//send message to staff ESP32 once per second with vive XY location
+void sendXY(int team, int robotX, int robotY) {
+  char msg[13];
+  sprintf(msg, "%2d:%4d,%4d", team, robotX, robotY);
+  esp_now_send(staffcomm.peer_addr, (uint8_t *) msg, 13);
+}
 
 // Wifi
 const char *ssid = "TEAM HAWAII WIFI";
 const char *password = "borabora";
+HTML510Server h(80);
 
 #define TIME_OF_FLIGHT_0_DEGREES_SCL_GPIO 1
 #define TIME_OF_FLIGHT_0_DEGREES_SDA_GPIO 2
@@ -341,6 +362,81 @@ public:
    }
 };
 
+// Class for a queue to get the approx. median.
+class OrestisQueue
+{
+private:
+  int data[20];
+  int size;
+
+public:
+  OrestisQueue()
+  {
+      this->size = sizeof(data) / sizeof(int);
+  }
+    void init(int num) {
+        for (int i = 0; i < size; i++) {
+          data[i] = num; // add same value to all
+        }
+    }
+    
+    void append(int new_num) {
+        for (int i = 0; i < size - 1; i++) {
+          data[i] = data[i+1]; // value of data[1] goes to data[0]
+        }
+        data[size - 1] = new_num;
+    }
+    
+    void print() {
+        for (int i = 0; i < size; i++) {
+              Serial.println(data[i]);
+        }
+    }
+    
+    int getSpecialMedian() {
+        // Duplicate array
+        int data_sorted[size];
+        for (int i = 0; i < size; i++) {
+            data_sorted[i] = data[i];
+        }
+
+        // Sort
+        bool swapped;
+        do {
+          swapped = false;
+          for (int i = 1; i < size; i++) {
+            if (data_sorted[i] < data_sorted[i - 1]) {
+              int temp = data_sorted[i - 1];
+              data_sorted[i - 1] = data_sorted[i];
+              data_sorted[i] = temp;
+              swapped = true;
+            }
+          }
+        } while (swapped);
+        
+        // print results
+//        for (int i = 0; i < size; i++) {
+//              Serial.println(data_sorted[i]);
+//        }
+//        
+        // Calculate average
+        int sum = 0;
+        for (int i = 0; i < size; i++) {
+              sum = sum + data_sorted[i];
+        }
+        int average = sum / size;
+        
+        // Get average of middle X% numbers
+        int avg_size = 0.5 * size;
+        int special_sum = 0;
+        for (int i = (size - avg_size) / 2; i < (size - avg_size) / 2 + avg_size; i++) {
+//            Serial.println(data_sorted[i]);
+            special_sum = special_sum + data_sorted[i];
+        }
+        
+        return special_sum / avg_size;
+    }
+};
 
 // Class for our Time Of Flight distance sensors
 class TimeOfFlight
@@ -349,10 +445,7 @@ private:
   int degrees_pointing;
   int sda_gpio;
   int scl_gpio;
-  int t0;
-  int t1;
-  int t2;
-  int t3;
+  OrestisQueue data_history;
   SFEVL53L1X distanceSensor;
 
 public:
@@ -363,14 +456,8 @@ public:
         this->scl_gpio = scl_gpio;
   }
     void init()
-    {
-      // SFEVL53L1X distanceSensor; // I2C for TimeOfFlight Sensor
-      
+    {      
       Wire.begin(this->sda_gpio, this->scl_gpio);
-      t0 = 1000;
-      t1 = 1000;
-      t2 = 1000;
-      t3 = 1000;
 
       // I2C TimeOfFlight Sensor SETUP
       Serial.println("VL53L1X Qwiic Test");
@@ -386,6 +473,9 @@ public:
 
       distanceSensor.setDistanceModeShort();
       // distanceSensor.setDistanceModeLong();
+
+      // Creating history
+      this->data_history.init(1000);
     }
 
     int getDistance()
@@ -401,18 +491,15 @@ public:
       distanceSensor.clearInterrupt();
       distanceSensor.stopRanging();
 
-      Serial.print("Reading distance: "); Serial.println(distance);
-      
-      if (distance < 100) { // ERROR When you read 0. Yoou shouldn't be!
-        distance = t0;
+      if (distance != 0) { // Not possible to read 0. It's an error.
+        data_history.append(distance);
       }
+      int m = data_history.getSpecialMedian();
 
-      t3 = t2;
-      t2 = t1;
-      t1 = t0;
-      t0 = distance;
+      // Serial.print("Reading distance: "); Serial.print(distance); 
+      // Serial.print(" / "); Serial.println(m);
 
-      return (int) (t0 + t1 + t2 + t3) / 4;
+      return m;
     }
 };
 
@@ -844,75 +931,87 @@ void logicMode(int mode){
 
 void setup()
 {
+
+  // Serial
   Serial.begin(115200);
 
   // WIFI SETUP
   Serial.print("Access Point SSID: ");
   Serial.print(ssid);
-  WiFi.mode(WIFI_AP);          // Set Mode to Access Point
+  WiFi.mode(WIFI_STA);          // Set Mode to Access Point
   WiFi.softAP(ssid, password); // Define access point SSID and its password
 
   IPAddress myIP(192, 168, 1, 161);                                                // Define my unique Static IP (from spreadsheet on slides)
   WiFi.softAPConfig(myIP, IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0)); // Define the (local IP, Gateway, Subnet mask)
 
-  Serial.print("Use this URL to connect: http://");
-  Serial.print(myIP);
-  Serial.println("/"); // Print the IP to connect to
-
   h.begin();
-
   h.attachHandler("/ ", handleRoot);
   h.attachHandler("/key_pressed?val=", handleKeyPressed);
   h.attachHandler("/get_updated_state", handleStateUpdate);
 
+  // Time Of Flight sensor
   TimeOfFlightDegrees0.init();
   delay(2000);
+
+  // ESP NOW
+  esp_now_init();
+  esp_now_add_peer(&staffcomm);
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LOOP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+void specialDelay(int milliseconds) {
+  int beginTime = millis();
+  int nowTime = beginTime;
+
+  while (millis() - beginTime < milliseconds) {
+    TimeOfFlightDegrees0.getDistance();
+    h.serve(); // listen to the frontend commands
+    InfraredReceiverCenter.measure700();
+    InfraredReceiverCenter.measure23();
+    pingstaff();
+    sendXY(30, 1000, 1000);
+  }
+}
 int currentTime = 0;
 int lastTime = 0;
 void loop()
 {
-  //h.serve(); // listen to the frontend commands
 
-   //InfraredReceiverCenter.measure700();
-   //InfraredReceiverCenter.measure23();
-
+  // ~~~~~~~~~~~~ WALL FOLLOW AUTONOMOUS ~~~~~~~~~~~
   currentTime = millis();
   if (currentTime - lastTime > 3000){
 
     drive(270, 0, 8); // jam left
-    delay(800);
+    specialDelay(800);
     lastTime = currentTime;
   }
 
-  // ~~~~~~~~~~~~ WALL FOLLOW AUTONOMOUS ~~~~~~~~~~~
   drive(330, 0, 8); // Drive straight
   int d = TimeOfFlightDegrees0.getDistance();
   if (d < 150 && d > 100)
   {
     Serial.print("ATTENTION ATTENTION: ");
-    Serial.print(TimeOfFlightDegrees0.getDistance());
-    delay(500);
+    Serial.println(TimeOfFlightDegrees0.getDistance());
+    specialDelay(500);
 
     d = TimeOfFlightDegrees0.getDistance();
     if (d < 150 && d > 100)
     {
       Serial.print("ATTENTION ATTENTION: ");
-      Serial.print(TimeOfFlightDegrees0.getDistance());
+      Serial.println(TimeOfFlightDegrees0.getDistance());
 
       drive(90, 0, 8); // shift right
-      delay(800);
+      specialDelay(800);
 
       drive(-1, 1, 8); // turn right
-      delay(750);
+      specialDelay(750);
 
       drive(270, 0, 8); // jam left
-      delay(3500);
+      specialDelay(3500);
 
       drive(-1, 0, 0); // stop to get your brain together.
-      delay(1000);
+      specialDelay(2000);
     }
   }
 }
