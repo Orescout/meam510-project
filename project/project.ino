@@ -852,13 +852,77 @@ void setup()
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LOOP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+int currentTime = 0;
+int lastTime = 0;
+
+int searching = 1;
+int straightDriving = 1;
+int scanning = 0;
+int jamming = 0;
+
+int firstLoop = 1;
+
 
 void loop()
 {
-  h.serve(); // listen to the frontend commands
-
-   InfraredReceiverCenter.measure700();
-   InfraredReceiverCenter.measure23();
+     //h.serve(); // listen to the frontend commands
+  InfraredReceiverCenter.measure700();
+  InfraredReceiverCenter.measure23();
   
+  currentTime = millis();
+
+  if (firstLoop) {
+    lastTime = currentTime;
+    firstLoop = 0;
+  }
+  
+
+  //driving straight along right wall
+  if (searching && straightDriving && currentTime - lastTime < 2000) {
+    //Serial.println("Straight Driving");
+    drive(330, 0, 6); // Drive straight
+  } else if(searching && straightDriving && currentTime - lastTime >= 2000) {
+    //Serial.println("stopping driving stright");
+    straightDriving = 0;
+    scanning = 1;
+    lastTime = currentTime;
+  }
+
+  //scan for beacon
+  if (searching && scanning && currentTime - lastTime < 1000) {
+    //Serial.println("scan left");
+    drive(-1, -1, 6); // turn left
+  } else if (searching && scanning && currentTime - lastTime >= 1000 && currentTime - lastTime < 2000) {
+    //Serial.println("scan right");
+    drive(-1, 1, 6); // turn right
+  } else if (searching && scanning && currentTime - lastTime >= 2000) {
+    //Serial.println("stop scanning");
+    scanning = 0;
+    jamming = 1;
+    lastTime = currentTime;
+  }
+
+  //jam right after scan
+  if (searching && jamming && currentTime - lastTime < 1500) {
+    //Serial.println("jamming");
+    drive(90, 0, 8); // jam right
+  } else if (searching && jamming && currentTime - lastTime >= 1500) {
+    //Serial.println("stop jamming");
+    jamming = 0;
+    straightDriving = 1;
+    lastTime = currentTime;
+  }
+
+
+
+  //stop the robot if you see a sign
+  if (InfraredReceiverCenter.readIR23()) {
+    searching = 0;
+    drive(-1, 0, 0); // stop to get your brain together.
+    Serial.println("POTATOES");
+  } else {
+    searching = 1;
+  }
+
 
 }
