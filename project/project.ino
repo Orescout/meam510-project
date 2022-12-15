@@ -349,6 +349,10 @@ private:
   int degrees_pointing;
   int sda_gpio;
   int scl_gpio;
+  int t0;
+  int t1;
+  int t2;
+  int t3;
   SFEVL53L1X distanceSensor;
 
 public:
@@ -363,6 +367,10 @@ public:
       // SFEVL53L1X distanceSensor; // I2C for TimeOfFlight Sensor
       
       Wire.begin(this->sda_gpio, this->scl_gpio);
+      t0 = 1000;
+      t1 = 1000;
+      t2 = 1000;
+      t3 = 1000;
 
       // I2C TimeOfFlight Sensor SETUP
       Serial.println("VL53L1X Qwiic Test");
@@ -393,9 +401,18 @@ public:
       distanceSensor.clearInterrupt();
       distanceSensor.stopRanging();
 
-      Serial.print("Reading distance"); Serial.println(distance);
+      Serial.print("Reading distance: "); Serial.println(distance);
+      
+      if (distance < 100) { // ERROR When you read 0. Yoou shouldn't be!
+        distance = t0;
+      }
 
-      return distance;
+      t3 = t2;
+      t2 = t1;
+      t1 = t0;
+      t0 = distance;
+
+      return (int) (t0 + t1 + t2 + t3) / 4;
     }
 };
 
@@ -849,16 +866,53 @@ void setup()
   h.attachHandler("/get_updated_state", handleStateUpdate);
 
   TimeOfFlightDegrees0.init();
+  delay(2000);
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LOOP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+int currentTime = 0;
+int lastTime = 0;
 void loop()
 {
-  h.serve(); // listen to the frontend commands
+  //h.serve(); // listen to the frontend commands
 
-   InfraredReceiverCenter.measure700();
-   InfraredReceiverCenter.measure23();
-  
+   //InfraredReceiverCenter.measure700();
+   //InfraredReceiverCenter.measure23();
 
+  currentTime = millis();
+  if (currentTime - lastTime > 3000){
+
+    drive(270, 0, 8); // jam left
+    delay(800);
+    lastTime = currentTime;
+  }
+
+  // ~~~~~~~~~~~~ WALL FOLLOW AUTONOMOUS ~~~~~~~~~~~
+  drive(330, 0, 8); // Drive straight
+  int d = TimeOfFlightDegrees0.getDistance();
+  if (d < 150 && d > 100)
+  {
+    Serial.print("ATTENTION ATTENTION: ");
+    Serial.print(TimeOfFlightDegrees0.getDistance());
+    delay(500);
+
+    d = TimeOfFlightDegrees0.getDistance();
+    if (d < 150 && d > 100)
+    {
+      Serial.print("ATTENTION ATTENTION: ");
+      Serial.print(TimeOfFlightDegrees0.getDistance());
+
+      drive(90, 0, 8); // shift right
+      delay(800);
+
+      drive(-1, 1, 8); // turn right
+      delay(750);
+
+      drive(270, 0, 8); // jam left
+      delay(3500);
+
+      drive(-1, 0, 0); // stop to get your brain together.
+      delay(1000);
+    }
+  }
 }
