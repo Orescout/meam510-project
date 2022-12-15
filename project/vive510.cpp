@@ -23,6 +23,10 @@ void IRAM_ATTR m_pulseISR(void *v)
   portEXIT_CRITICAL_ISR(&mux);
 }
 
+Vive510::Vive510() // ADDED
+{
+}
+
 Vive510::Vive510(int pin)
 {
   m_pin = pin;

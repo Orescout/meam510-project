@@ -39,6 +39,7 @@ private:
   void processPulse();
   
 public:
+  Vive510(); // ADDED
   Vive510(int pin);
   uint16_t xCoord();
   uint16_t yCoord();

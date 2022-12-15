@@ -335,96 +335,147 @@ public:
 };
 
 // Class for our Vive sensors
-// class ViveSensor
-// {
-// private:
-//   int is_the_left_sensor;
-//   int gpio;
-//   Vive510 viveObject; // Creating the object with dummy pin which we'll change later! Don't worry!
+class ViveSensor
+{
+private:
+  int is_the_left_sensor;
+  int gpio;
+  int x_coordinate;
+  int y_coordinate;
+  Vive510 viveObject; // Creating the object with dummy pin which we'll change later! Don't worry!
 
-// public:
-//   ViveSensor(int is_the_left_sensor, int gpio)
-//   {
-//     this->is_the_left_sensor = is_the_left_sensor;
-//     this->gpio = gpio;
+public:
+  ViveSensor(int is_the_left_sensor, int gpio)
+  {
+    this->is_the_left_sensor = is_the_left_sensor;
+    this->gpio = gpio;
+    this->x_coordinate = 0;
+    this->y_coordinate = 0;
+  }
+    void init()
+    {
+      viveObject.begin(gpio); // Sets pin as input
+    }
 
-//     init();
-//   }
-//     void init()
-//     {
-//       viveObject.begin(gpio); // Sets pin as input
-//     }
+    int getCoordinateHelper(int is_x){
+      if (is_x) {
+        return viveObject.xCoord();
+      } else {
+        return viveObject.yCoord();
+      }
+    }
+    
+    // Pass in whether you're asking for X (1) or Y (0) coordinate
+    int readCoordinate(int is_x)
+    {
+      int raw_coordinate = 0; // If shit goes to hell, the value is -1.
 
-//     int getX()
-//     {
-//       int x_raw_coordinate = 0; // If shit goes to hell, the value is -1.
+      if (viveObject.status() == VIVE_RECEIVING)
+      {
+        raw_coordinate = getCoordinateHelper(is_x);
+      }
+      else
+      {
+        switch (viveObject.sync(5)) // We didn't get a read. Repeats X times syncing.
+        {
+            break;
+            case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
+              Serial.println("Weak signal");
+              break;
+            default:
+            case VIVE_NO_SIGNAL: // nothing detected
+              Serial.println("No signal");
+        }
+      }
 
-//       if (viveObject.status() == VIVE_RECEIVING)
-//       {
-//         x_raw_coordinate = viveObject.xCoord(); // TODO: Capture better xCoord in function.
-//       }
-//       else
-//       {
-//         switch (viveObject.sync(5)) // We didn't get a read. Repeats X times syncing.
-//         {
-//           case VIVE_SYNC_ONLY:                // missing sweep pulses (signal weak)
-//             Serial.println("Left vive: weak signal");
-//             break;
+      return raw_coordinate;
+    }
+};
 
-//           case VIVE_NO_SIGNAL:                // nothing detected
-//             Serial.println("Left vive: no signal");
-//             break;
+ViveSensor ViveRightSensor(0, VIVE_RIGHT_GPIO);
+ViveSensor ViveLeftSensor(1, VIVE_LEFT_GPIO);
 
-//           // case VIVE_RECEIVING:                // got good signal finally. yay!
-//           //   x_raw_coordinate = viveObject.xCoord();
-//           //   Serial.println("Got valid signal after 5 repettitions");
-//           //   break;
+// Class for our Time Of Flight distance sensors
+class ViveMegaClass
+{
+private:
+  ViveSensor LeftSensor;
+  ViveSensor RightSensor;
+  int left_x_coordinate;
+  int left_y_coordinate;
+  int right_x_coordinate;
+  int right_y_coordinate;
 
-//           default:
-//             Serial.println("Code return doesn't make sense. It may have worked?"); // TODO: UNDERSTAND WHATS GOING ON HERE IF THIS GETS PRINTED!!
-//             break;
-//           }
-//       }
+public:
+  ViveMegaClass(ViveSensor LeftSensor, ViveSensor RightSensor)
+  {
+      this->LeftSensor = LeftSensor;
+      this->RightSensor = RightSensor;
+      
+  }
+  void init() {
+    this->left_x_coordinate = 0;
+    this->left_y_coordinate = 0;
+    this->right_x_coordinate = 0;
+    this->right_y_coordinate = 0;
+  }
 
-//       return x_raw_coordinate;
-//     }
+  int calculateCoordinates() {
+    // Read X,Y from each sensor
+    int left_x = LeftSensor.readCoordinate(1); // read Left X
+    int left_y = LeftSensor.readCoordinate(0); // read Left Y
 
-//     int getY()
-//     {
-//       int y_raw_coordinate = -1; // If shit goes to hell, the value is -1.
+    int right_x = LeftSensor.readCoordinate(1); // read Right X
+    int right_y = LeftSensor.readCoordinate(0); // read Right Y
 
-//       if (viveObject.status() == VIVE_RECEIVING)
-//       {
-//         y_raw_coordinate = viveObject.yCoord();
-//         Serial.print("Y coord: ");
-//         Serial.println(y_raw_coordinate);
-//       }
-//       else
-//       {
-//         switch (viveObject.sync(5)) // Repeats X times syncing.
-//         {
-//           case VIVE_SYNC_ONLY:                // missing sweep pulses (signal weak)
-//             Serial.println("Left vive: weak signal");
-//             break;
+    // If valid, update
+    if (hasValidCoordinates(left_x, left_y, right_x, right_y)) {
+      this->left_x_coordinate = left_x;
+      this->left_y_coordinate = left_y;
+      this->right_x_coordinate = right_x;
+      this->right_y_coordinate = right_y;
+    }
+  }
 
-//           case VIVE_NO_SIGNAL:                // nothing detected
-//             Serial.println("Left vive: no signal");
-//             break;
+  int getLeftX(){
+    return this->left_x_coordinate;
+  }
 
-//           // case VIVE_RECEIVING:                // got good signal finally. yay!
-//           //   y_raw_coordinate = viveObject.yCoord();
-//           //   Serial.println("Got valid signal after 5 repettitions");
-//           //   break;
+  int getLeftY(){
+    return this->left_y_coordinate;
+  }
 
-//           default:
-//             Serial.println("Code return doesn't make sense. It may have worked?"); // TODO: UNDERSTAND WHATS GOING ON HERE IF THIS GETS PRINTED!!
-//             break;
-//           }
-//       }
+  int getRightX(){
+    return this->right_x_coordinate;
+  }
 
-//       return y_raw_coordinate;
-//     }
-// };
+  int getRightY(){
+    return this->right_y_coordinate;
+  }
+
+  int hasValidCoordinates(int left_x, int left_y, int right_x, int right_y)
+  {
+    if (left_x < 1000 || left_x > 7000 || right_x < 1000 || right_x > 7000) { // X out of bounds
+      return 0;
+    }
+
+    if (left_y < 1000 || left_y > 7000 || right_y < 1000 || right_y > 7000) { // U out of bounds
+      return 0;
+    }
+
+    int distance_between_vive_sensors = (int)sqrt(pow(left_x - right_x, 2) + pow(left_y - right_y, 2)); // =404 calculated
+    if (distance_between_vive_sensors < 350 || distance_between_vive_sensors > 450)
+    { // U out of bounds
+      Serial.println("Distance between sensors is too small");
+      return 0;
+    }
+    
+    // If passed all checks, it's valid!
+    return 1;
+  }
+};
+
+ViveMegaClass OneVive(ViveLeftSensor, ViveRightSensor);
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -592,154 +643,154 @@ void drive(int move_degrees, int look_direction, int speed)
 
 // InfraredReceiver InfraredReceiverCenter(INFRARED_RECEIVER_GPIO);
 
-Vive510 viveRight(VIVE_RIGHT_GPIO);
-Vive510 viveLeft(VIVE_LEFT_GPIO);
+// SOPHIE CODE
+// Vive510 viveRight(VIVE_RIGHT_GPIO);
+// Vive510 viveLeft(VIVE_LEFT_GPIO);
 
 // function to return median of 3 values
-int med3Filt(int a, int b, int c)
-{
-  int mid;
-  if ((a <= b) && (a <= c))
-  {
-    mid = (b <= c) ? b : c;
-  }
-  else if ((b <= a) && (b <= c))
-  {
-    mid = (a <= c) ? a : c;
-  }
-  else
-  {
-    mid = (a <= b) ? a : b;
-  }
-  return mid;
-}
+// int med3Filt(int a, int b, int c)
+// {
+//   int mid;
+//   if ((a <= b) && (a <= c))
+//   {
+//     mid = (b <= c) ? b : c;
+//   }
+//   else if ((b <= a) && (b <= c))
+//   {
+//     mid = (a <= c) ? a : c;
+//   }
+//   else
+//   {
+//     mid = (a <= b) ? a : b;
+//   }
+//   return mid;
+// }
 
-int lx = 0;
-int ly = 0;
-int rx = 0;
-int ry = 0;
+// int lx = 0;
+// int ly = 0;
+// int rx = 0;
+// int ry = 0;
 
-int getVive(int viveCoord)
-{
-  int avg_lx = 0;
-  int avg_ly = 0;
-  int avg_rx = 0;
-  int avg_ry = 0;
-  
-  switch (viveCoord)
-  {
-  case LEFT_X:
-    if (viveLeft.status() == VIVE_RECEIVING)
-    {
-      // implement med filter
-      int r1 = viveLeft.xCoord();
-      int r2 = viveLeft.xCoord();
-      int r3 = viveLeft.xCoord();
-      avg_lx = med3Filt(r1, r2, r3);
-      Serial.printf("LeftX %d ", avg_lx);
-      return avg_lx;
-    }
-    else
-    {
-      switch (viveLeft.sync(5))
-      {
-        break;
-      case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
-        Serial.println("Left vive: weak signal");
-        break;
-      default:
-      case VIVE_NO_SIGNAL: // nothing detected
-        Serial.println("Left vive: no signal");
-      }
-    }
-    return avg_lx;
-    // TODO: DO FOR ALL 4 CASES
-    break;
-  case LEFT_Y:
-    Serial.print("VIVELEFT STATUS:");
-    Serial.println(viveLeft.status());
-    if (viveLeft.status() == VIVE_RECEIVING)
-    {
-      int r1 = viveLeft.yCoord();
-      int r2 = viveLeft.yCoord();
-      int r3 = viveLeft.yCoord();
-      avg_ly = med3Filt(r1, r2, r3);
-      Serial.printf("         LeftY %d ", avg_ly);
-      return avg_ly;
-    }
-    else
-    {
-      switch (viveLeft.sync(5))
-      {
-        break;
-      case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
-        Serial.println("Left vive: weak signal");
-        break;
-      default:
-      case VIVE_NO_SIGNAL: // nothing detected
-        Serial.println("Left vive: no signal");
-      }
-    }
-    return avg_lx;
-    break;
-  case RIGHT_X:
-    Serial.print("VIVERIGHT STATUS:");
-    Serial.println(viveRight.status());
-    if (viveRight.status() == VIVE_RECEIVING)
-    {
-      int r1 = viveRight.xCoord();
-      int r2 = viveRight.xCoord();
-      int r3 = viveRight.xCoord();
-      avg_rx = med3Filt(r1, r2, r3);
-      Serial.printf("                            RightX %d ", avg_rx);
-      return avg_rx;
-    }
-    else
-    {
-      switch (viveRight.sync(5))
-      {
-        break;
-      case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
-        Serial.println("Right vive: weak signal");
-        break;
-      default:
-      case VIVE_NO_SIGNAL: // nothing detected
-        Serial.println("Right vive: no signal");
-      }
-    }
-    return avg_rx;
-    // TODO: DO FOR ALL 4 CASES
-    break;
-  case RIGHT_Y:
-    Serial.print("VIVERIGHT STATUS:");
-    Serial.println(viveRight.status());
-    if (viveRight.status() == VIVE_RECEIVING)
-    {
-      int r1 = viveRight.yCoord();
-      int r2 = viveRight.yCoord();
-      int r3 = viveRight.yCoord();
-      avg_ry = med3Filt(r1, r2, r3);
-      Serial.printf("                                                          RightY %d ", avg_ry);
-      return avg_ry;
-    }
-    else
-    {
-      switch (viveRight.sync(5))
-      {
-        break;
-      case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
-        Serial.println("Right vive: weak signal");
-        break;
-      default:
-      case VIVE_NO_SIGNAL: // nothing detected
-        Serial.println("Right vive: no signal");
-      }
-    }
-    return avg_ry;
-    break;
-  } // end of switch
-  Serial.println("end of getVive f'n");
-}
+// int getVive(int viveCoord)
+// {
+//   int avg_lx = 0;
+//   int avg_ly = 0;
+//   int avg_rx = 0;
+//   int avg_ry = 0;
+//   switch (viveCoord)
+//   {
+//   case LEFT_X:
+//     if (viveLeft.status() == VIVE_RECEIVING)
+//     {
+//       // implement med filter
+//       int r1 = viveLeft.xCoord();
+//       int r2 = viveLeft.xCoord();
+//       int r3 = viveLeft.xCoord();
+//       avg_lx = med3Filt(r1, r2, r3);
+//       Serial.printf("LeftX %d ", avg_lx);
+//       return avg_lx;
+//     }
+//     else
+//     {
+//       switch (viveLeft.sync(5))
+//       {
+//         break;
+//       case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
+//         Serial.println("Left vive: weak signal");
+//         break;
+//       default:
+//       case VIVE_NO_SIGNAL: // nothing detected
+//         Serial.println("Left vive: no signal");
+//       }
+//     }
+//     return avg_lx;
+//     // TODO: DO FOR ALL 4 CASES
+//     break;
+//   case LEFT_Y:
+//     Serial.print("VIVELEFT STATUS:");
+//     Serial.println(viveLeft.status());
+//     if (viveLeft.status() == VIVE_RECEIVING)
+//     {
+//       int r1 = viveLeft.yCoord();
+//       int r2 = viveLeft.yCoord();
+//       int r3 = viveLeft.yCoord();
+//       avg_ly = med3Filt(r1, r2, r3);
+//       Serial.printf("         LeftY %d ", avg_ly);
+//       return avg_ly;
+//     }
+//     else
+//     {
+//       switch (viveLeft.sync(5))
+//       {
+//         break;
+//       case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
+//         Serial.println("Left vive: weak signal");
+//         break;
+//       default:
+//       case VIVE_NO_SIGNAL: // nothing detected
+//         Serial.println("Left vive: no signal");
+//       }
+//     }
+//     return avg_lx;
+//     break;
+//   case RIGHT_X:
+//     Serial.print("VIVERIGHT STATUS:");
+//     Serial.println(viveRight.status());
+//     if (viveRight.status() == VIVE_RECEIVING)
+//     {
+//       int r1 = viveRight.xCoord();
+//       int r2 = viveRight.xCoord();
+//       int r3 = viveRight.xCoord();
+//       avg_rx = med3Filt(r1, r2, r3);
+//       Serial.printf("                            RightX %d ", avg_rx);
+//       return avg_rx;
+//     }
+//     else
+//     {
+//       switch (viveRight.sync(5))
+//       {
+//         break;
+//       case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
+//         Serial.println("Right vive: weak signal");
+//         break;
+//       default:
+//       case VIVE_NO_SIGNAL: // nothing detected
+//         Serial.println("Right vive: no signal");
+//       }
+//     }
+//     return avg_rx;
+//     // TODO: DO FOR ALL 4 CASES
+//     break;
+//   case RIGHT_Y:
+//     Serial.print("VIVERIGHT STATUS:");
+//     Serial.println(viveRight.status());
+//     if (viveRight.status() == VIVE_RECEIVING)
+//     {
+//       int r1 = viveRight.yCoord();
+//       int r2 = viveRight.yCoord();
+//       int r3 = viveRight.yCoord();
+//       avg_ry = med3Filt(r1, r2, r3);
+//       Serial.printf("                                                          RightY %d ", avg_ry);
+//       return avg_ry;
+//     }
+//     else
+//     {
+//       switch (viveRight.sync(5))
+//       {
+//         break;
+//       case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
+//         Serial.println("Right vive: weak signal");
+//         break;
+//       default:
+//       case VIVE_NO_SIGNAL: // nothing detected
+//         Serial.println("Right vive: no signal");
+//       }
+//     }
+//     return avg_ry;
+//     break;
+//   } // end of switch
+//   Serial.println("end of getVive f'n");
+// }
 
 // ViveSensor ViveLeft(1, VIVE_LEFT_GPIO);
 
@@ -858,10 +909,10 @@ void handleStateUpdate()
         'robot': { \
           'x': 100, \
           'y': 50, \
-          'raw_left_x': " + String(lx) + ", \
-          'raw_right_x':  " + String(rx) + ", \
-          'raw_left_y':  " + String(ly) + ", \
-          'raw_right_y':  " + String(ry) + ", \
+          'raw_left_x': " + String(OneVive.getLeftX()) + ", \
+          'raw_right_x':  " + String(OneVive.getRightX()) + ", \
+          'raw_left_y':  " + String(OneVive.getLeftY()) + ", \
+          'raw_right_y':  " + String(OneVive.getRightY()) + ", \
           'degrees': 0 \
         }, \
         'IR_sensor': { \
@@ -950,21 +1001,20 @@ void setup()
   h.attachHandler("/get_updated_state", handleStateUpdate);
 
   TimeOfFlightDegrees0.init();
-  viveRight.begin();
-  viveLeft.begin();
-  Serial.println("vive sensors started");
-  // delay(2000);
+  delay(2000);
+  // viveRight.begin();
+  // viveLeft.begin();
+  ViveLeftSensor.init();
+  ViveRightSensor.init();
+  OneVive.init();
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LOOP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 void loop()
 {
-  lx = getVive(LEFT_X);
-  ly = getVive(LEFT_Y);
-  rx = getVive(RIGHT_X);
-  ry = getVive(RIGHT_Y);
+  OneVive.calculateCoordinates();
 
   h.serve(); // listen to the frontend commands
-  // delay(20);
+  // delay(10);
 }

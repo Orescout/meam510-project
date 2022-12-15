@@ -457,11 +457,11 @@ const char body[] PROGMEM = R"===(
 
     // Plot vive sensor #1
     context_raw_vive.fillStyle = "rgba(255, 0, 0, 1)";
-    context_raw_vive.fillRect(Math.round(raw_left_x / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(raw_left_y / 10), 2, 2);
+    context_raw_vive.fillRect(Math.round(raw_left_x / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(raw_left_y / 10), 4, 4);
 
     // Plot vive sensor #2
     context_raw_vive.fillStyle = "rgba(0, 255, 255, 1)";
-    context_raw_vive.fillRect(Math.round(raw_right_x / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(raw_right_y / 10), 2, 2);
+    context_raw_vive.fillRect(Math.round(raw_right_x / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(raw_right_y / 10), 4, 4);
     
     // Plot corners CHANGE HERE SOPHIE
     context_raw_vive.fillStyle = "rgba(0, 0, 255, 1)";
