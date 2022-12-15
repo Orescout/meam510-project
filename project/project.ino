@@ -854,75 +854,122 @@ void setup()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LOOP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 int currentTime = 0;
 int lastTime = 0;
+int slowDownTime = 0;
 
 int searching = 1;
 int straightDriving = 1;
 int scanning = 0;
 int jamming = 0;
+int going = 0;
+int lastIRReading = 0;
+int preloopIR = 0;
 
 int firstLoop = 1;
 
 
-void loop()
-{
-     //h.serve(); // listen to the frontend commands
+ void loop()
+ {
+  //h.serve(); // listen to the frontend commands
   InfraredReceiverCenter.measure700();
   InfraredReceiverCenter.measure23();
   
-  currentTime = millis();
+   currentTime = millis();
 
   if (firstLoop) {
     lastTime = currentTime;
+    slowDownTime = currentTime;
     firstLoop = 0;
+    //Serial.println("first initialization");
   }
   
+  preloopIR = (InfraredReceiverCenter.readIR23() || InfraredReceiverCenter.readIR700());
 
-  //driving straight along right wall
-  if (searching && straightDriving && currentTime - lastTime < 2000) {
-    //Serial.println("Straight Driving");
-    drive(330, 0, 6); // Drive straight
-  } else if(searching && straightDriving && currentTime - lastTime >= 2000) {
-    //Serial.println("stopping driving stright");
-    straightDriving = 0;
-    scanning = 1;
-    lastTime = currentTime;
+   if (currentTime - slowDownTime > 100) {
+     slowDownTime = currentTime;
+      //Serial.println("inner loop go");
+    //SEARCHING ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    //driving straight along right wall
+    if (searching && straightDriving && (currentTime - lastTime) < 2000) {
+      Serial.println("searching Straight Driving");
+      drive(0, 0, 5); // Drive straight
+    } else if(searching && straightDriving && (currentTime - lastTime) >= 2000) {
+      Serial.println("searching stopping driving stright");
+      straightDriving = 0;
+      scanning = 1;
+      lastTime = currentTime;
+    }
+
+    //scan for beacon
+    if (searching && scanning && currentTime - lastTime < 1300) {
+      Serial.println("searching scan left");
+      drive(-1, -1, 5); // turn left
+    } else if (searching && scanning && currentTime - lastTime >= 1300 && currentTime - lastTime < 2600) {
+      Serial.println("Searching scan right");
+      drive(-1, 1, 5); // turn right
+    } else if (searching && scanning && (currentTime - lastTime) >= 2600) {
+      Serial.println("searching stop scanning");
+      scanning = 0;
+      jamming = 1;
+      lastTime = currentTime;
+    }
+
+    //jam right after scan
+    if (searching && jamming && (currentTime - lastTime) < 1100) {
+      Serial.println("searching jamming");
+      drive(90, 0, 5); // jam right
+    } else if (searching && jamming && (currentTime - lastTime) >= 1100) {
+      Serial.println("searching stop jamming");
+      jamming = 0;
+      straightDriving = 1;
+      lastTime = currentTime;
+    }
+
+    //adding a if statement to pause robot on first time you see it
+
+    //stop the robot if you see a sign while searching
+    if (searching && (InfraredReceiverCenter.readIR23() || InfraredReceiverCenter.readIR700()) && lastIRReading && preloopIR) {
+      Serial.println("searching stop");
+      drive(-1, 0, 0); // stop to get your brain together.
+      searching = 0;
+      jamming = 0;
+      scanning = 0;
+      straightDriving = 1;
+      going = 1;
+    }
+
+    // GOING ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //driving straight towards target
+    if (going && straightDriving && (InfraredReceiverCenter.readIR23() || InfraredReceiverCenter.readIR700()) && lastIRReading && preloopIR) {
+      Serial.println("going straight");
+      drive(0, 0, 5); // Drive straight
+    } else if(going && straightDriving) {
+      Serial.println("going stop straight");
+      straightDriving = 0;
+      scanning = 1;
+      lastTime = currentTime;
+    }
+
+    //scan for beacon
+    if (going && scanning && (currentTime - lastTime) < 3000) {
+      Serial.println("going scanning left");
+      drive(-1, -1, 3); // turn left
+    } else if (going && scanning && (currentTime - lastTime) >= 3000 && currentTime - lastTime < 6000) {
+      Serial.println("going scanning right");
+      drive(-1, 1, 4); // turn right
+    } else if (going && scanning && (currentTime - lastTime) >= 6000) {
+      lastTime = currentTime;
+    }
+
+    //go back to driving straight if you see a sign while scanning
+    if (going && (InfraredReceiverCenter.readIR23() || InfraredReceiverCenter.readIR700()) && lastIRReading && preloopIR) {
+      Serial.println("going to back to straight");
+      scanning = 0;
+      straightDriving = 1;
+    }
+
+    lastIRReading = (InfraredReceiverCenter.readIR23() || InfraredReceiverCenter.readIR700());
+    Serial.print("Last IR: ");
+    Serial.println(lastIRReading);
   }
-
-  //scan for beacon
-  if (searching && scanning && currentTime - lastTime < 1000) {
-    //Serial.println("scan left");
-    drive(-1, -1, 6); // turn left
-  } else if (searching && scanning && currentTime - lastTime >= 1000 && currentTime - lastTime < 2000) {
-    //Serial.println("scan right");
-    drive(-1, 1, 6); // turn right
-  } else if (searching && scanning && currentTime - lastTime >= 2000) {
-    //Serial.println("stop scanning");
-    scanning = 0;
-    jamming = 1;
-    lastTime = currentTime;
-  }
-
-  //jam right after scan
-  if (searching && jamming && currentTime - lastTime < 1500) {
-    //Serial.println("jamming");
-    drive(90, 0, 8); // jam right
-  } else if (searching && jamming && currentTime - lastTime >= 1500) {
-    //Serial.println("stop jamming");
-    jamming = 0;
-    straightDriving = 1;
-    lastTime = currentTime;
-  }
-
-
-
-  //stop the robot if you see a sign
-  if (InfraredReceiverCenter.readIR23()) {
-    searching = 0;
-    drive(-1, 0, 0); // stop to get your brain together.
-    Serial.println("POTATOES");
-  } else {
-    searching = 1;
-  }
-
-
 }
