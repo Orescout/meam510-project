@@ -5,6 +5,7 @@
 #include <Wire.h>
 #include "SparkFun_VL53L1X.h"
 #include "vive510.h"
+#include <math.h>
 #include <esp_now.h>
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ESPNOW SENDER SETUP: copied from canvas~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -38,6 +39,12 @@ HTML510Server h(80);
 #define TIME_OF_FLIGHT_0_DEGREES_SCL_GPIO 1
 #define TIME_OF_FLIGHT_0_DEGREES_SDA_GPIO 2
 
+// Vive : //define int values to each of the coordinates the vive function returns
+#define LEFT_X 1
+#define LEFT_Y 2
+#define RIGHT_X 3
+#define RIGHT_Y 4
+
 // PWM channels for ledC
 #define PWM_CH_A 0
 #define PWM_CH_B 1
@@ -58,8 +65,8 @@ HTML510Server h(80);
 #define MOTOR_D_GPIO_ONE 12
 #define MOTOR_D_GPIO_TWO 11
 
-#define INFRARED_RECEIVER_GPIO 33 
-//#define INFRARED_RECEIVER_23HZ_GPIO 21  // TODO: JD
+#define INFRARED_RECEIVER_GPIO 33
+// #define INFRARED_RECEIVER_23HZ_GPIO 21  // TODO: JD
 
 #define VIVE_RIGHT_GPIO 20
 #define VIVE_LEFT_GPIO 19
@@ -451,56 +458,50 @@ private:
 public:
   TimeOfFlight(int degrees_pointing, int sda_gpio, int scl_gpio)
   {
-        this->degrees_pointing = degrees_pointing;
-        this->sda_gpio = sda_gpio;
-        this->scl_gpio = scl_gpio;
+    this->degrees_pointing = degrees_pointing;
+    this->sda_gpio = sda_gpio;
+    this->scl_gpio = scl_gpio;
   }
+
     void init()
     {      
       Wire.begin(this->sda_gpio, this->scl_gpio);
 
-      // I2C TimeOfFlight Sensor SETUP
-      Serial.println("VL53L1X Qwiic Test");
-      delay(5000);
+    Wire.begin(this->sda_gpio, this->scl_gpio);
 
-      if (distanceSensor.begin() != 0) // Begin returns 0 on a good init
-      {
-        Serial.println("Sensor failed to begin. Please check wiring. Freezing...");
-        while (1)
-          ;
-      }
-      Serial.println("Sensor online!");
+    // I2C TimeOfFlight Sensor SETUP
+    Serial.println("VL53L1X Qwiic Test");
+    delay(5000);
+    distanceSensor.setDistanceModeShort();
+    // distanceSensor.setDistanceModeLong();
 
-      distanceSensor.setDistanceModeShort();
-      // distanceSensor.setDistanceModeLong();
+    // Creating history
+    this->data_history.init(1000);
 
-      // Creating history
-      this->data_history.init(1000);
-    }
+    Serial.println("Sensor online!");
 
-    int getDistance()
+    distanceSensor.setDistanceModeShort();
+    // distanceSensor.setDistanceModeLong();
+  }
+
+  int getDistance()
+  {
+    distanceSensor.startRanging(); // Write configuration bytes to initiate measurement
+
+    while (!distanceSensor.checkForDataReady())
     {
-      distanceSensor.startRanging(); // Write configuration bytes to initiate measurement
-
-      while (!distanceSensor.checkForDataReady())
-      {
-        delay(1);
-      }
-
-      int distance = distanceSensor.getDistance(); // Get the result of the measurement from the sensor
-      distanceSensor.clearInterrupt();
-      distanceSensor.stopRanging();
-
-      if (distance != 0) { // Not possible to read 0. It's an error.
-        data_history.append(distance);
-      }
-      int m = data_history.getSpecialMedian();
-
-      // Serial.print("Reading distance: "); Serial.print(distance); 
-      // Serial.print(" / "); Serial.println(m);
-
-      return m;
+      delay(1);
     }
+    if (distance != 0) { // Not possible to read 0. It's an error.
+      data_history.append(distance);
+    }
+    int m = data_history.getSpecialMedian();
+
+    // Serial.print("Reading distance: "); Serial.print(distance); 
+    // Serial.print(" / "); Serial.println(m);
+
+    return m;
+  }
 };
 
 // Class for our Vive sensors
@@ -509,89 +510,150 @@ class ViveSensor
 private:
   int is_the_left_sensor;
   int gpio;
+  int x_coordinate;
+  int y_coordinate;
   Vive510 viveObject; // Creating the object with dummy pin which we'll change later! Don't worry!
 
 public:
-  ViveSensor(int is_the_left_sensor, int gpio)
+  ViveSensor()
   {
-    this->is_the_left_sensor = is_the_left_sensor;
-    this->gpio = gpio;
-
-    init();
+    this->x_coordinate = 0;
+    this->y_coordinate = 0;
   }
-    void init()
+    void init(int is_the_left_sensor, int gpio)
     {
-      viveObject.begin(gpio); // Sets pin as input
+      this->is_the_left_sensor = is_the_left_sensor;
+      this->gpio = gpio;
+
+      viveObject.begin(this->gpio); // Sets pin as input
     }
 
-    int getX()
+    int getCoordinateHelper(int is_x){
+      if (is_x) {
+        return viveObject.xCoord();
+      } else {
+        return viveObject.yCoord();
+      }
+    }
+    
+    // Pass in whether you're asking for X (1) or Y (0) coordinate
+    int readCoordinate(int is_x)
     {
-      int x_raw_coordinate = 0; // If shit goes to hell, the value is -1.
+      int raw_coordinate = 0; // If shit goes to hell, the value is -1.
 
       if (viveObject.status() == VIVE_RECEIVING)
       {
-        x_raw_coordinate = viveObject.xCoord(); // TODO: Capture better xCoord in function.
+        raw_coordinate = getCoordinateHelper(is_x);
       }
       else
       {
         switch (viveObject.sync(5)) // We didn't get a read. Repeats X times syncing.
         {
-          case VIVE_SYNC_ONLY:                // missing sweep pulses (signal weak)
-            Serial.println("Left vive: weak signal");
             break;
-
-          case VIVE_NO_SIGNAL:                // nothing detected
-            Serial.println("Left vive: no signal");
-            break;
-          
-          case VIVE_RECEIVING:                // got good signal finally. yay!
-            x_raw_coordinate = viveObject.xCoord();
-            Serial.println("Got valid signal after 5 repettitions");
-            break;
-
-          default:
-            Serial.print("Code return doesn't make sense. It may have worked?"); // TODO: UNDERSTAND WHATS GOING ON HERE IF THIS GETS PRINTED!!
-            break;
-          }
+            case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
+              Serial.println("Weak signal");
+              break;
+            default:
+            case VIVE_NO_SIGNAL: // nothing detected
+              Serial.println("No signal");
+        }
       }
 
-      return x_raw_coordinate;
-    }
-
-    int getY()
-    {
-      int y_raw_coordinate = -1; // If shit goes to hell, the value is -1.
-      
-      if (viveObject.status() == VIVE_RECEIVING)
-      {
-        y_raw_coordinate = viveObject.yCoord();
-      }
-      else
-      {
-        switch (viveObject.sync(5)) // Repeats X times syncing.
-        {
-          case VIVE_SYNC_ONLY:                // missing sweep pulses (signal weak)
-            Serial.println("Left vive: weak signal");
-            break;
-
-          case VIVE_NO_SIGNAL:                // nothing detected
-            Serial.println("Left vive: no signal");
-            break;
-          
-          case VIVE_RECEIVING:                // got good signal finally. yay!
-            y_raw_coordinate = viveObject.yCoord();
-            Serial.println("Got valid signal after 5 repettitions");
-            break;
-
-          default:
-            Serial.print("Code return doesn't make sense. It may have worked?"); // TODO: UNDERSTAND WHATS GOING ON HERE IF THIS GETS PRINTED!!
-            break;
-          }
-      }
-
-      return y_raw_coordinate;
+      return raw_coordinate;
     }
 };
+
+// ViveSensor ViveRightSensor(0, VIVE_RIGHT_GPIO);
+// ViveSensor ViveLeftSensor(1, VIVE_LEFT_GPIO);
+
+// Class for our Time Of Flight distance sensors
+class ViveMegaClass
+{
+private:
+  ViveSensor LeftSensor;
+  ViveSensor RightSensor;
+  
+  int left_x_coordinate; 
+  int left_y_coordinate;
+  int right_x_coordinate;
+  int right_y_coordinate;
+
+  int left_vive_gpio;
+  int right_vive_gpio;
+
+public:
+  ViveMegaClass(int left_vive_gpio, int right_vive_gpio)
+  {
+      this->left_vive_gpio = left_vive_gpio;
+      this->right_vive_gpio = right_vive_gpio;
+  }
+
+  void init() {
+      this->LeftSensor.init(1, this->left_vive_gpio);
+      this->RightSensor.init(0, this->right_vive_gpio);
+
+      this->left_x_coordinate = 0;
+      this->left_y_coordinate = 0;
+      this->right_x_coordinate = 0;
+      this->right_y_coordinate = 0;
+  }
+
+  void calculateCoordinates() {
+    // Read X,Y from each sensor
+    int left_x = LeftSensor.readCoordinate(1); // read Left X
+    int left_y = LeftSensor.readCoordinate(0); // read Left Y
+
+    int right_x = RightSensor.readCoordinate(1); // read Right X
+    int right_y = RightSensor.readCoordinate(0); // read Right Y
+
+    // If valid, update
+    if (hasValidCoordinates(left_x, left_y, right_x, right_y)) {
+      this->left_x_coordinate = left_x;
+      this->left_y_coordinate = left_y;
+      this->right_x_coordinate = right_x;
+      this->right_y_coordinate = right_y;
+    }
+  }
+
+  int getLeftX(){
+    return this->left_x_coordinate;
+  }
+
+  int getLeftY(){
+    return this->left_y_coordinate;
+  }
+
+  int getRightX(){
+    return this->right_x_coordinate;
+  }
+
+  int getRightY(){
+    return this->right_y_coordinate;
+  }
+
+  int hasValidCoordinates(int left_x, int left_y, int right_x, int right_y)
+  {
+    if (left_x < 1000 || left_x > 7000 || right_x < 1000 || right_x > 7000) { // X out of bounds
+      return 0;
+    }
+
+    if (left_y < 1000 || left_y > 7000 || right_y < 1000 || right_y > 7000) { // U out of bounds
+      return 0;
+    }
+
+    int distance_between_vive_sensors = (int) sqrt(pow(left_x - right_x, 2) + pow(left_y - right_y, 2)); // =404 calculated
+    if (distance_between_vive_sensors < 350 || distance_between_vive_sensors > 450)
+    { // U out of bounds
+      Serial.println("Distance between sensors is too small or too big: " + String(distance_between_vive_sensors));
+      return 0;
+    }
+    
+    // If passed all checks, it's valid!
+    return 1;
+  }
+};
+
+ViveMegaClass OneVive(VIVE_LEFT_GPIO, VIVE_RIGHT_GPIO);
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -653,13 +715,13 @@ void drive(int move_degrees, int look_direction, int speed)
   switch (move_degrees)
   {
   case 0 ... 90:
-    speed_BL_B_and_FR_C = speed - (int) speed * (float) move_degrees / 45.0;
+    speed_BL_B_and_FR_C = speed - (int)speed * (float)move_degrees / 45.0;
     break;
   case 91 ... 180:
     speed_BL_B_and_FR_C = speed * -1;
     break;
   case 181 ... 270:
-    speed_BL_B_and_FR_C = (int) speed * (float) (move_degrees - 180) / 45.0 - speed;
+    speed_BL_B_and_FR_C = (int)speed * (float)(move_degrees - 180) / 45.0 - speed;
     break;
   case 271 ... 360:
     speed_BL_B_and_FR_C = speed;
@@ -674,19 +736,19 @@ void drive(int move_degrees, int look_direction, int speed)
     speed_FL_A_and_BR_D = speed;
     break;
   case 91 ... 180:
-    speed_FL_A_and_BR_D = speed - (int) speed * (float) (move_degrees - 90) / 45.0;
+    speed_FL_A_and_BR_D = speed - (int)speed * (float)(move_degrees - 90) / 45.0;
     break;
   case 181 ... 270:
     speed_FL_A_and_BR_D = speed * -1;
     break;
   case 271 ... 360:
-    speed_FL_A_and_BR_D = (int) speed * (float) (move_degrees - 270) / 45.0 - speed;
+    speed_FL_A_and_BR_D = (int)speed * (float)(move_degrees - 270) / 45.0 - speed;
     break;
   }
 
   setAllDirections(speed_FL_A_and_BR_D > 0, speed_BL_B_and_FR_C > 0, speed_BL_B_and_FR_C > 0, speed_FL_A_and_BR_D > 0);
   setAllMotorSpeeds(abs(speed_FL_A_and_BR_D), abs(speed_BL_B_and_FR_C), abs(speed_BL_B_and_FR_C), abs(speed_FL_A_and_BR_D));
-  
+
   // switch (move_degrees)
   // {
   // case 0: // Forward
@@ -758,9 +820,6 @@ void drive(int move_degrees, int look_direction, int speed)
 // }
 
 InfraredReceiver InfraredReceiverCenter(INFRARED_RECEIVER_GPIO);
-
-ViveSensor ViveRight(0, VIVE_RIGHT_GPIO);
-ViveSensor ViveLeft(1, VIVE_LEFT_GPIO);
 
 TimeOfFlight TimeOfFlightDegrees0(0, TIME_OF_FLIGHT_0_DEGREES_SDA_GPIO, TIME_OF_FLIGHT_0_DEGREES_SCL_GPIO);
 
@@ -867,18 +926,24 @@ void handleStateUpdate()
         'status': 'success', \
         'skip_setup': false, \
         'setup': { \
-          'robot_width': " + String(ROBOT_WIDTH) + ", \
-          'robot_height': " + String(ROBOT_HEIGHT) + ", \
+          'robot_width': " +
+                         String(ROBOT_WIDTH) + ", \
+          'robot_height': " +
+                         String(ROBOT_HEIGHT) + ", \
           'game_width': 366, \
           'game_height': 152 \
         }, \
         'robot': { \
           'x': 100, \
           'y': 50, \
-          'raw_left_x': " + String(ViveLeft.getX()) + ", \
-          'raw_right_x': " + String(ViveRight.getX()) + ", \
-          'raw_left_y': " + String(ViveLeft.getY()) + ", \
-          'raw_right_y': " + String(ViveRight.getY()) + ", \
+          'raw_left_x': " +
+                         String(OneVive.getLeftX()) + ", \
+          'raw_right_x': " +
+                         String(OneVive.getRightX()) + ", \
+          'raw_left_y': " +
+                         String(OneVive.getLeftY()) + ", \
+          'raw_right_y': " +
+                         String(OneVive.getRightY()) + ", \
           'degrees': 0 \
         }, \
         'IR_sensor': { \
@@ -886,22 +951,31 @@ void handleStateUpdate()
           'beacon_23Hz': " + String(InfraredReceiverCenter.readIR23()) + " \
         }, \
         'ToF_sensor': { \
-          'distance': [" + String(TimeOfFlightDegrees0.getDistance()) + "], \
+          'distance': [" +
+                         String(TimeOfFlightDegrees0.getDistance()) + "], \
           'degrees': [0], \
           'time': [0] \
         }, \
         'motors': { \
           'power': { \
-            'front_left_A': " + String(motorFrontLeftA.getSpeed()) + ", \
-            'back_left_B': " + String(motorBackLeftB.getSpeed()) + ", \
-            'front_right_C': " + String(motorFrontRightC.getSpeed()) + ", \
-            'back_right_D': " + String(motorBackRightD.getSpeed()) + " \
+            'front_left_A': " +
+                         String(motorFrontLeftA.getSpeed()) + ", \
+            'back_left_B': " +
+                         String(motorBackLeftB.getSpeed()) + ", \
+            'front_right_C': " +
+                         String(motorFrontRightC.getSpeed()) + ", \
+            'back_right_D': " +
+                         String(motorBackRightD.getSpeed()) + " \
           }, \
           'direction': { \
-            'front_left_A': " + String(motorFrontLeftA.getDirection()) + ", \
-            'back_left_B': " + String(motorBackLeftB.getDirection()) + ", \
-            'front_right_C': " + String(motorFrontRightC.getDirection()) + ", \
-            'back_right_D': " + String(motorBackRightD.getDirection()) + " \
+            'front_left_A': " +
+                         String(motorFrontLeftA.getDirection()) + ", \
+            'back_left_B': " +
+                         String(motorBackLeftB.getDirection()) + ", \
+            'front_right_C': " +
+                         String(motorFrontRightC.getDirection()) + ", \
+            'back_right_D': " +
+                         String(motorBackRightD.getDirection()) + " \
           } \
         } \
       }";
@@ -912,19 +986,6 @@ void handleStateUpdate()
   // Serial.println(response_json);
 
   h.sendplain(response_json);
-}
-
-void logicMode(int mode){
-  if (mode == 1) { // Logic for Wall Follow: turn when distance gets <300mm:
-    if (TimeOfFlightDegrees0.getDistance() < 400) {
-      drive(-1, -1, 4);
-    }
-    else
-    {
-      drive(0, 0, 4);
-    }
-  } else {
-  }
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SETUP FUNCTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -952,6 +1013,8 @@ void setup()
   // Time Of Flight sensor
   TimeOfFlightDegrees0.init();
   delay(2000);
+
+  OneVive.init();
 
   // ESP NOW
   esp_now_init();
@@ -993,179 +1056,7 @@ int firstLoop = 1;
 
 void loop()
 {
-  if (millis() - startTime < 0) { // ~~~~~~~~~~~~ WALL FOLLOW AUTONOMOUS ~~~~~~~~~~~
-    
-      currentTime = millis();
-      if (currentTime - lastTime > 3000){
+  OneVive.calculateCoordinates();
 
-        drive(270, 0, 8); // jam left
-        specialDelay(800);
-        lastTime = currentTime;
-      }
-
-      drive(330, 0, 8); // Drive straight
-      int d = TimeOfFlightDegrees0.getDistance();
-      if (d < 150 && d > 100)
-      {
-        Serial.print("ATTENTION ATTENTION: ");
-        Serial.println(TimeOfFlightDegrees0.getDistance());
-        specialDelay(500);
-
-        d = TimeOfFlightDegrees0.getDistance();
-        if (d < 150 && d > 100)
-        {
-          Serial.print("ATTENTION ATTENTION: ");
-          Serial.println(TimeOfFlightDegrees0.getDistance());
-
-          drive(90, 0, 8); // shift right
-          specialDelay(800);
-
-          drive(-1, 1, 8); // turn right
-          specialDelay(750);
-
-          drive(270, 0, 8); // jam left
-          specialDelay(3500);
-
-          drive(-1, 0, 0); // stop to get your brain together.
-          specialDelay(2000);
-        }
-      }
-  } else { // IR FINDER AUTONOMOUS
-      if (millis() - startTime < 0) {
-
-        InfraredReceiverCenter.measure700();
-        InfraredReceiverCenter.measure23();
-        
-        currentTime = millis();
-
-        if (firstLoop) {
-          drive(-1, 0, 0); // stop to get your brain together.
-          delay(20000);
-
-          currentTime = millis();
-          lastTime = currentTime;
-          slowDownTime = currentTime;
-          firstLoop = 0;
-          //Serial.println("first initialization");
-        }
-        
-        preloopIR = (InfraredReceiverCenter.readIR23() || InfraredReceiverCenter.readIR700());
-
-        if (currentTime - slowDownTime > 100) {
-          slowDownTime = currentTime;
-            //Serial.println("inner loop go");
-          //SEARCHING ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-          //driving straight along right wall
-          if (searching && straightDriving && (currentTime - lastTime) < 2000) {
-            Serial.println("searching Straight Driving");
-            drive(0, 0, 5); // Drive straight
-          } else if(searching && straightDriving && (currentTime - lastTime) >= 2000) {
-            Serial.println("searching stopping driving stright");
-            straightDriving = 0;
-            scanning = 1;
-            lastTime = currentTime;
-          }
-
-          //scan for beacon
-          if (searching && scanning && currentTime - lastTime < 1300) {
-            Serial.println("searching scan left");
-            drive(-1, -1, 5); // turn left
-          } else if (searching && scanning && currentTime - lastTime >= 1300 && currentTime - lastTime < 2600) {
-            Serial.println("Searching scan right");
-            drive(-1, 1, 5); // turn right
-          } else if (searching && scanning && (currentTime - lastTime) >= 2600) {
-            Serial.println("searching stop scanning");
-            scanning = 0;
-            jamming = 1;
-            lastTime = currentTime;
-          }
-
-          //jam right after scan
-          if (searching && jamming && (currentTime - lastTime) < 1100) {
-            Serial.println("searching jamming");
-            drive(90, 0, 5); // jam right
-          } else if (searching && jamming && (currentTime - lastTime) >= 1100) {
-            Serial.println("searching stop jamming");
-            jamming = 0;
-            straightDriving = 1;
-            lastTime = currentTime;
-          }
-
-          //adding a if statement to pause robot on first time you see it
-
-          //stop the robot if you see a sign while searching
-          if (searching && (InfraredReceiverCenter.readIR23() || InfraredReceiverCenter.readIR700()) && lastIRReading && preloopIR) {
-            Serial.println("searching stop");
-            drive(-1, 0, 0); // stop to get your brain together.
-            searching = 0;
-            jamming = 0;
-            scanning = 0;
-            straightDriving = 1;
-            going = 1;
-          }
-
-          // GOING ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-          //driving straight towards target
-          if (going && straightDriving && (InfraredReceiverCenter.readIR23() || InfraredReceiverCenter.readIR700()) && lastIRReading && preloopIR) {
-            Serial.println("going straight");
-            drive(0, 0, 5); // Drive straight
-          } else if(going && straightDriving) {
-            Serial.println("going stop straight");
-            straightDriving = 0;
-            scanning = 1;
-            lastTime = currentTime;
-          }
-
-          //scan for beacon
-          if (going && scanning && (currentTime - lastTime) < 3000) {
-            Serial.println("going scanning left");
-            drive(-1, -1, 3); // turn left
-          } else if (going && scanning && (currentTime - lastTime) >= 3000 && currentTime - lastTime < 6000) {
-            Serial.println("going scanning right");
-            drive(-1, 1, 4); // turn right
-          } else if (going && scanning && (currentTime - lastTime) >= 6000) {
-            lastTime = currentTime;
-          }
-
-          //go back to driving straight if you see a sign while scanning
-          if (going && (InfraredReceiverCenter.readIR23() || InfraredReceiverCenter.readIR700()) && lastIRReading && preloopIR) {
-            Serial.println("going to back to straight");
-            scanning = 0;
-            straightDriving = 1;
-          }
-
-          lastIRReading = (InfraredReceiverCenter.readIR23() || InfraredReceiverCenter.readIR700());
-          Serial.print("Last IR: ");
-          Serial.println(lastIRReading);
-        }
-      } else {
-        drive(0, 0, 8); // go straight
-        delay(2500);
-
-        drive(270, 0, 8); // jam left
-        specialDelay(1000);
-
-        drive(90, 0, 8); // move right
-        specialDelay(2500);
-
-        drive(0, 0, 10); // go straight
-        delay(4000);
-
-        drive(180, 0, 6); // go back
-        delay(500);
-
-        drive(0, 0, 10); // go straight
-        delay(2000);
-
-        drive(180, 0, 6); // go back
-        delay(500);
-
-        drive(0, 0, 10); // go straight
-        delay(2000);
-
-
-      }
-  }
-  
+  h.serve(); // listen to the frontend commands
 }

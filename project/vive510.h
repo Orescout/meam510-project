@@ -39,7 +39,7 @@ private:
   void processPulse();
   
 public:
-  Vive510(); // Added line by Orestis
+  Vive510(); // ADDED
   Vive510(int pin);
   uint16_t xCoord();
   uint16_t yCoord();
