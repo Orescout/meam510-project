@@ -345,16 +345,17 @@ private:
   Vive510 viveObject; // Creating the object with dummy pin which we'll change later! Don't worry!
 
 public:
-  ViveSensor(int is_the_left_sensor, int gpio)
+  ViveSensor()
   {
-    this->is_the_left_sensor = is_the_left_sensor;
-    this->gpio = gpio;
     this->x_coordinate = 0;
     this->y_coordinate = 0;
   }
-    void init()
+    void init(int is_the_left_sensor, int gpio)
     {
-      viveObject.begin(gpio); // Sets pin as input
+      this->is_the_left_sensor = is_the_left_sensor;
+      this->gpio = gpio;
+
+      viveObject.begin(this->gpio); // Sets pin as input
     }
 
     int getCoordinateHelper(int is_x){
@@ -392,93 +393,97 @@ public:
     }
 };
 
-ViveSensor ViveRightSensor(0, VIVE_RIGHT_GPIO);
-ViveSensor ViveLeftSensor(1, VIVE_LEFT_GPIO);
+// ViveSensor ViveRightSensor(0, VIVE_RIGHT_GPIO);
+// ViveSensor ViveLeftSensor(1, VIVE_LEFT_GPIO);
 
 // Class for our Time Of Flight distance sensors
-// class ViveMegaClass
-// {
-// private:
-//   ViveSensor LeftSensor;
-//   ViveSensor RightSensor;
-//   int left_x_coordinate;
-//   int left_y_coordinate;
-//   int right_x_coordinate;
-//   int right_y_coordinate;
-//   // int last_left_X_coordinates[10];
+class ViveMegaClass
+{
+private:
+  ViveSensor LeftSensor;
+  ViveSensor RightSensor;
+  
+  int left_x_coordinate; 
+  int left_y_coordinate;
+  int right_x_coordinate;
+  int right_y_coordinate;
 
+  int left_vive_gpio;
+  int right_vive_gpio;
 
-// public:
-//   ViveMegaClass(ViveSensor LeftSensor, ViveSensor RightSensor)
-//   {
-//       this->LeftSensor = LeftSensor;
-//       this->RightSensor = RightSensor;
+public:
+  ViveMegaClass(int left_vive_gpio, int right_vive_gpio)
+  {
+      this->left_vive_gpio = left_vive_gpio;
+      this->right_vive_gpio = right_vive_gpio;
+  }
 
-//   }
+  void init() {
+      this->LeftSensor.init(1, this->left_vive_gpio);
+      this->RightSensor.init(0, this->right_vive_gpio);
 
-//   void init() {
-//     this->left_x_coordinate = 0;
-//     this->left_y_coordinate = 0;
-//     this->right_x_coordinate = 0;
-//     this->right_y_coordinate = 0;
-//   }
+      this->left_x_coordinate = 0;
+      this->left_y_coordinate = 0;
+      this->right_x_coordinate = 0;
+      this->right_y_coordinate = 0;
+  }
 
-//   int calculateCoordinates() {
-//     // Read X,Y from each sensor
-//     int left_x = LeftSensor.readCoordinate(1); // read Left X
-//     int left_y = LeftSensor.readCoordinate(0); // read Left Y
+  void calculateCoordinates() {
+    // Read X,Y from each sensor
+    int left_x = LeftSensor.readCoordinate(1); // read Left X
+    int left_y = LeftSensor.readCoordinate(0); // read Left Y
 
-//     int right_x = LeftSensor.readCoordinate(1); // read Right X
-//     int right_y = LeftSensor.readCoordinate(0); // read Right Y
+    int right_x = RightSensor.readCoordinate(1); // read Right X
+    int right_y = RightSensor.readCoordinate(0); // read Right Y
 
-//     // If valid, update
-//     if (hasValidCoordinates(left_x, left_y, right_x, right_y)) {
-//       this->left_x_coordinate = left_x;
-//       this->left_y_coordinate = left_y;
-//       this->right_x_coordinate = right_x;
-//       this->right_y_coordinate = right_y;
-//     }
-//   }
+    // If valid, update
+    if (hasValidCoordinates(left_x, left_y, right_x, right_y)) {
+      this->left_x_coordinate = left_x;
+      this->left_y_coordinate = left_y;
+      this->right_x_coordinate = right_x;
+      this->right_y_coordinate = right_y;
+    }
+  }
 
-//   int getLeftX(){
-//     return this->left_x_coordinate;
-//   }
+  int getLeftX(){
+    return this->left_x_coordinate;
+  }
 
-//   int getLeftY(){
-//     return this->left_y_coordinate;
-//   }
+  int getLeftY(){
+    return this->left_y_coordinate;
+  }
 
-//   int getRightX(){
-//     return this->right_x_coordinate;
-//   }
+  int getRightX(){
+    return this->right_x_coordinate;
+  }
 
-//   int getRightY(){
-//     return this->right_y_coordinate;
-//   }
+  int getRightY(){
+    return this->right_y_coordinate;
+  }
 
-//   int hasValidCoordinates(int left_x, int left_y, int right_x, int right_y)
-//   {
-//     if (left_x < 1000 || left_x > 7000 || right_x < 1000 || right_x > 7000) { // X out of bounds
-//       return 0;
-//     }
+  int hasValidCoordinates(int left_x, int left_y, int right_x, int right_y)
+  {
+    if (left_x < 1000 || left_x > 7000 || right_x < 1000 || right_x > 7000) { // X out of bounds
+      return 0;
+    }
 
-//     if (left_y < 1000 || left_y > 7000 || right_y < 1000 || right_y > 7000) { // U out of bounds
-//       return 0;
-//     }
+    if (left_y < 1000 || left_y > 7000 || right_y < 1000 || right_y > 7000) { // U out of bounds
+      return 0;
+    }
 
-//     int distance_between_vive_sensors = (int)sqrt(pow(left_x - right_x, 2) + pow(left_y - right_y, 2)); // =404 calculated
-//     if (distance_between_vive_sensors < 350 || distance_between_vive_sensors > 450)
-//     { // U out of bounds
-//       Serial.println("Distance between sensors is too small");
-//       return 0;
-//     }
+    int distance_between_vive_sensors = (int) sqrt(pow(left_x - right_x, 2) + pow(left_y - right_y, 2)); // =404 calculated
+    if (distance_between_vive_sensors < 350 || distance_between_vive_sensors > 450)
+    { // U out of bounds
+      Serial.println("Distance between sensors is too small or too big: " + String(distance_between_vive_sensors));
+      return 0;
+    }
     
-//     // If passed all checks, it's valid!
-//     return 1;
-//   }
-// };
+    // If passed all checks, it's valid!
+    return 1;
+  }
+};
 
-// ViveMegaClass OneVive(ViveLeftSensor, ViveRightSensor);
+ViveMegaClass OneVive(VIVE_LEFT_GPIO, VIVE_RIGHT_GPIO);
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -646,157 +651,6 @@ void drive(int move_degrees, int look_direction, int speed)
 
 // InfraredReceiver InfraredReceiverCenter(INFRARED_RECEIVER_GPIO);
 
-// SOPHIE CODE
-// Vive510 viveRight(VIVE_RIGHT_GPIO);
-// Vive510 viveLeft(VIVE_LEFT_GPIO);
-
-// function to return median of 3 values
-// int med3Filt(int a, int b, int c)
-// {
-//   int mid;
-//   if ((a <= b) && (a <= c))
-//   {
-//     mid = (b <= c) ? b : c;
-//   }
-//   else if ((b <= a) && (b <= c))
-//   {
-//     mid = (a <= c) ? a : c;
-//   }
-//   else
-//   {
-//     mid = (a <= b) ? a : b;
-//   }
-//   return mid;
-// }
-
-// int lx = 0;
-// int ly = 0;
-// int rx = 0;
-// int ry = 0;
-
-// int getVive(int viveCoord)
-// {
-//   int avg_lx = 0;
-//   int avg_ly = 0;
-//   int avg_rx = 0;
-//   int avg_ry = 0;
-//   switch (viveCoord)
-//   {
-//   case LEFT_X:
-//     if (viveLeft.status() == VIVE_RECEIVING)
-//     {
-//       // implement med filter
-//       int r1 = viveLeft.xCoord();
-//       int r2 = viveLeft.xCoord();
-//       int r3 = viveLeft.xCoord();
-//       avg_lx = med3Filt(r1, r2, r3);
-//       Serial.printf("LeftX %d ", avg_lx);
-//       return avg_lx;
-//     }
-//     else
-//     {
-//       switch (viveLeft.sync(5))
-//       {
-//         break;
-//       case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
-//         Serial.println("Left vive: weak signal");
-//         break;
-//       default:
-//       case VIVE_NO_SIGNAL: // nothing detected
-//         Serial.println("Left vive: no signal");
-//       }
-//     }
-//     return avg_lx;
-//     // TODO: DO FOR ALL 4 CASES
-//     break;
-//   case LEFT_Y:
-//     Serial.print("VIVELEFT STATUS:");
-//     Serial.println(viveLeft.status());
-//     if (viveLeft.status() == VIVE_RECEIVING)
-//     {
-//       int r1 = viveLeft.yCoord();
-//       int r2 = viveLeft.yCoord();
-//       int r3 = viveLeft.yCoord();
-//       avg_ly = med3Filt(r1, r2, r3);
-//       Serial.printf("         LeftY %d ", avg_ly);
-//       return avg_ly;
-//     }
-//     else
-//     {
-//       switch (viveLeft.sync(5))
-//       {
-//         break;
-//       case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
-//         Serial.println("Left vive: weak signal");
-//         break;
-//       default:
-//       case VIVE_NO_SIGNAL: // nothing detected
-//         Serial.println("Left vive: no signal");
-//       }
-//     }
-//     return avg_lx;
-//     break;
-//   case RIGHT_X:
-//     Serial.print("VIVERIGHT STATUS:");
-//     Serial.println(viveRight.status());
-//     if (viveRight.status() == VIVE_RECEIVING)
-//     {
-//       int r1 = viveRight.xCoord();
-//       int r2 = viveRight.xCoord();
-//       int r3 = viveRight.xCoord();
-//       avg_rx = med3Filt(r1, r2, r3);
-//       Serial.printf("                            RightX %d ", avg_rx);
-//       return avg_rx;
-//     }
-//     else
-//     {
-//       switch (viveRight.sync(5))
-//       {
-//         break;
-//       case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
-//         Serial.println("Right vive: weak signal");
-//         break;
-//       default:
-//       case VIVE_NO_SIGNAL: // nothing detected
-//         Serial.println("Right vive: no signal");
-//       }
-//     }
-//     return avg_rx;
-//     // TODO: DO FOR ALL 4 CASES
-//     break;
-//   case RIGHT_Y:
-//     Serial.print("VIVERIGHT STATUS:");
-//     Serial.println(viveRight.status());
-//     if (viveRight.status() == VIVE_RECEIVING)
-//     {
-//       int r1 = viveRight.yCoord();
-//       int r2 = viveRight.yCoord();
-//       int r3 = viveRight.yCoord();
-//       avg_ry = med3Filt(r1, r2, r3);
-//       Serial.printf("                                                          RightY %d ", avg_ry);
-//       return avg_ry;
-//     }
-//     else
-//     {
-//       switch (viveRight.sync(5))
-//       {
-//         break;
-//       case VIVE_SYNC_ONLY: // missing sweep pulses (signal weak)
-//         Serial.println("Right vive: weak signal");
-//         break;
-//       default:
-//       case VIVE_NO_SIGNAL: // nothing detected
-//         Serial.println("Right vive: no signal");
-//       }
-//     }
-//     return avg_ry;
-//     break;
-//   } // end of switch
-//   Serial.println("end of getVive f'n");
-// }
-
-// ViveSensor ViveLeft(1, VIVE_LEFT_GPIO);
-
 TimeOfFlight TimeOfFlightDegrees0(0, TIME_OF_FLIGHT_0_DEGREES_SDA_GPIO, TIME_OF_FLIGHT_0_DEGREES_SCL_GPIO);
 
 void handleRoot()
@@ -912,10 +766,14 @@ void handleStateUpdate()
         'robot': { \
           'x': 100, \
           'y': 50, \
-          'raw_left_x': 0, \
-          'raw_right_x':  0, \
-          'raw_left_y':  0, \
-          'raw_right_y':  0, \
+          'raw_left_x': " +
+                         String(OneVive.getLeftX()) + ", \
+          'raw_right_x': " +
+                         String(OneVive.getRightX()) + ", \
+          'raw_left_y': " +
+                         String(OneVive.getLeftY()) + ", \
+          'raw_right_y': " +
+                         String(OneVive.getRightY()) + ", \
           'degrees': 0 \
         }, \
         'IR_sensor': { \
@@ -960,24 +818,6 @@ void handleStateUpdate()
   h.sendplain(response_json);
 }
 
-void logicMode(int mode)
-{
-  if (mode == 1)
-  { // Logic for Wall Follow: turn when distance gets <300mm:
-    if (TimeOfFlightDegrees0.getDistance() < 400)
-    {
-      drive(-1, -1, 4);
-    }
-    else
-    {
-      drive(0, 0, 4);
-    }
-  }
-  else
-  {
-  }
-}
-
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SETUP FUNCTION ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 void setup()
@@ -1005,20 +845,15 @@ void setup()
 
   TimeOfFlightDegrees0.init();
   delay(2000);
-  // viveRight.begin();
-  // viveLeft.begin();
-  
-  // ViveLeftSensor.init();
-  // ViveRightSensor.init();
-  // OneVive.init();
+
+  OneVive.init();
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LOOP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 void loop()
 {
-  // OneVive.calculateCoordinates();
+  OneVive.calculateCoordinates();
 
   h.serve(); // listen to the frontend commands
-  // delay(10);
 }
