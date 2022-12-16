@@ -10,7 +10,8 @@
 
 #include "vive510.h"
 // #define DEBUG //uncomment to view print statements
-//  #define DEBUG2
+
+// #define DEBUG2
 
 portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 

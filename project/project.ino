@@ -6,14 +6,35 @@
 #include "SparkFun_VL53L1X.h"
 #include "vive510.h"
 #include <math.h>
+#include <esp_now.h>
 
-// Hello!
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ESPNOW SENDER SETUP: copied from canvas~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#define CHANNEL 1                  // channel can be 1 to 14, channel 0 means current channel.  
+#define MAC_RECV  {0x84,0xF7,0x03,0xA8,0xBE,0x30} // receiver MAC address (last digit should be even for STA)
 
-HTML510Server h(80);
+esp_now_peer_info_t staffcomm = {
+  .peer_addr = {0x84,0xF7,0x03,0xA9,0x04,0x78}, 
+  .channel = 1,             // channel can be 1 to 14, channel 0 means current channel.
+  .encrypt = false,
+};
+
+//game sender to required staff: taken from game-sender.ino code
+void pingstaff() {
+  uint8_t teamNum = 30;
+  esp_now_send(staffcomm.peer_addr, &teamNum, 1);
+}
+
+//send message to staff ESP32 once per second with vive XY location
+void sendXY(int team, int robotX, int robotY) {
+  char msg[13];
+  sprintf(msg, "%2d:%4d,%4d", team, robotX, robotY);
+  esp_now_send(staffcomm.peer_addr, (uint8_t *) msg, 13);
+}
 
 // Wifi
 const char *ssid = "TEAM HAWAII WIFI";
 const char *password = "borabora";
+HTML510Server h(80);
 
 #define TIME_OF_FLIGHT_0_DEGREES_SCL_GPIO 1
 #define TIME_OF_FLIGHT_0_DEGREES_SDA_GPIO 2
@@ -209,73 +230,220 @@ Motor motorFrontRightC(PWM_CH_C, MOTOR_C_GPIO_ONE, MOTOR_C_GPIO_TWO, ENCODER_GPI
 Motor motorBackRightD(PWM_CH_D, MOTOR_D_GPIO_ONE, MOTOR_D_GPIO_TWO, ENCODER_GPIO_D, DIRECTION_D);
 
 // Class for our Infrared receivers
-// class InfraredReceiver
-// {
-// private:
-//   int IR_gpio;
+class InfraredReceiver
+{
+private:
+  int IR_gpio;
+  int signal_state_700;
+  float frequency_700;
+  float current_time_700;
+  float first_low_time_700;
+  int signal_state_23;
+  float frequency_23;
+  float current_time_23;
+  float first_low_time_23;
 
-// public:
-//   InfraredReceiver(int IR_gpio)
-//   {
-//         this->IR_gpio = IR_gpio;
+  int signal_700_present;
+  int signal_23_present;
 
-//         init();
-//   }
-//     void init()
-//     {
-//       //assigning input pin from IR sensor board
-//       pinMode(this->IR_gpio, INPUT);
+public:
+  InfraredReceiver(int IR_gpio)
+  {
+        this->IR_gpio = IR_gpio;
 
-//     }
+        init();
+  }
+    void init()
+    {
+      //assigning input pin from IR sensor board
+      pinMode(this->IR_gpio, INPUT);
 
-//     //reads given frequency input
-//     //frequency_search is the desired frequency(23 or 700)
-//     //outputs a 1 if that frequency_search you want is found, 0 if not
-//     int read(int frequency_search)
-//     {
-//       //used to calculate frequency
-//       float frequency;
-//       //both used for calculating frequency
-//       float current_time;
-//       float first_low_time;
-//       //1 is if the signal is high, 0 is if its low
-//       int signal_state = 1;
+      //1 is if the signal is high, 0 is if its low
+      this->signal_state_700 = 1;
+      this->signal_state_23 = 1;
 
-//       //calculating the frequency
-//       for (int i = 1; i < 50; ++i) {
-//         current_time = millis();
+      //used to calculate frequency
+      this->frequency_700;
+      this->frequency_23;
 
-//         //read for a high signal
-//         if(digitalRead(this->IR_gpio)) {
-//             if (signal_state == 0) {
-//               //calculate length of half a period
-//               frequency = current_time - first_low_time;
+      //both used for calculating frequency
+      this->current_time_700;
+      this->current_time_23;
+      this->first_low_time_700;
+      this->first_low_time_23;
 
-//               //assign frequency based off of frequency
-//               //700 Hz
-//               if (frequency < 15 && frequency_search == 700) {
-//                 return 1;
-//               }
-//               //23Hz
-//               if (frequency > 15 && frequency < 50 && frequency_search == 23) {
-//                 return 1;
-//               }
-//           }
-//           signal_state = 1;
+      //storing what signals are present
+      this->signal_700_present = 0;
+      this->signal_23_present = 0;
+    }
 
-//         } else {
-//           //mark the time when the signal is first low
-//           if (signal_state) {
-//             first_low_time = millis();
-//           }
-//           signal_state = 0;
-//         }
-//         delay(1);
-//       }
-//       //if no signal found return 0
-//       return 0;
-//     }
-// };
+    //outputs a 1 if 700 Hz is found
+    //outputs a 0 if a 700 Hz signal is not there
+    //outputs a 2 if no output(calculating in between outputs of 1 and 0)
+    void measure700()
+    {
+      current_time_700 = millis();
+      //calculate length of half a period
+      frequency_700 = current_time_700 - first_low_time_700;
+
+      //read for low to high movement
+      if(digitalRead(this->IR_gpio) && signal_state_700 == 0) {
+        //signal is high
+        signal_state_700 = 1;
+
+        //period right length for 700Hz
+        if (frequency_700 < 15) {
+          //Serial.println("700Hz");
+          signal_700_present = 1;
+        }
+
+      //looks for going from high to low
+      } else if (digitalRead(this->IR_gpio) == 0) {
+         //mark the time when the signal is first low
+         if (signal_state_700) {
+          first_low_time_700 = millis();
+         }
+        signal_state_700 = 0;
+       } else if (digitalRead(this->IR_gpio)) {
+        //signal is high
+        signal_state_700 = 1;
+
+        if (frequency_700 >= 15) {
+          //no 700Hz signal
+          signal_700_present = 0;
+        }
+       }
+   }
+
+
+
+
+    //outputs a 1 if 23 Hz is found
+    //outputs a 0 if a 23 Hz signal is not there
+    //outputs a 2 if no output(calculating in between outputs of 1 and 0)
+    void measure23()
+    {
+      current_time_23 = millis();
+      //calculate length of half a period
+      frequency_23 = current_time_23 - first_low_time_23;
+
+      //read for low to high movement
+      if(digitalRead(this->IR_gpio) && signal_state_23 == 0) {
+        //signal is high
+        signal_state_23 = 1;
+
+        //period right length for 23Hz
+        if (frequency_23 > 15 && frequency_23 < 55) {
+          //Serial.print("Freq: ");
+          //Serial.println(frequency_23);
+          signal_23_present = 1;
+        }
+
+      //looks for going from high to low
+      } else if (digitalRead(this->IR_gpio) == 0) {
+         //mark the time when the signal is first low
+         if (signal_state_23) {
+          first_low_time_23 = millis();
+         }
+        signal_state_23 = 0;
+       } else if (digitalRead(this->IR_gpio)) {
+        //signal is high
+        signal_state_23 = 1;
+
+        if (frequency_23 >= 55 || frequency_23 <= 15) {
+          //no 23Hz signal
+          //Serial.println("no 23Hz signal");
+          signal_23_present = 0;
+        }
+       }
+   }
+
+   int readIR700() 
+   {
+      return signal_700_present;
+   }
+
+   int readIR23() 
+   {
+      return signal_23_present;
+   }
+};
+
+// Class for a queue to get the approx. median.
+class OrestisQueue
+{
+private:
+  int data[20];
+  int size;
+
+public:
+  OrestisQueue()
+  {
+      this->size = sizeof(data) / sizeof(int);
+  }
+    void init(int num) {
+        for (int i = 0; i < size; i++) {
+          data[i] = num; // add same value to all
+        }
+    }
+    
+    void append(int new_num) {
+        for (int i = 0; i < size - 1; i++) {
+          data[i] = data[i+1]; // value of data[1] goes to data[0]
+        }
+        data[size - 1] = new_num;
+    }
+    
+    void print() {
+        for (int i = 0; i < size; i++) {
+              Serial.println(data[i]);
+        }
+    }
+    
+    int getSpecialMedian() {
+        // Duplicate array
+        int data_sorted[size];
+        for (int i = 0; i < size; i++) {
+            data_sorted[i] = data[i];
+        }
+
+        // Sort
+        bool swapped;
+        do {
+          swapped = false;
+          for (int i = 1; i < size; i++) {
+            if (data_sorted[i] < data_sorted[i - 1]) {
+              int temp = data_sorted[i - 1];
+              data_sorted[i - 1] = data_sorted[i];
+              data_sorted[i] = temp;
+              swapped = true;
+            }
+          }
+        } while (swapped);
+        
+        // print results
+//        for (int i = 0; i < size; i++) {
+//              Serial.println(data_sorted[i]);
+//        }
+//        
+        // Calculate average
+        int sum = 0;
+        for (int i = 0; i < size; i++) {
+              sum = sum + data_sorted[i];
+        }
+        int average = sum / size;
+        
+        // Get average of middle X% numbers
+        int avg_size = 0.5 * size;
+        int special_sum = 0;
+        for (int i = (size - avg_size) / 2; i < (size - avg_size) / 2 + avg_size; i++) {
+//            Serial.println(data_sorted[i]);
+            special_sum = special_sum + data_sorted[i];
+        }
+        
+        return special_sum / avg_size;
+    }
+};
 
 // Class for our Time Of Flight distance sensors
 class TimeOfFlight
@@ -284,6 +452,7 @@ private:
   int degrees_pointing;
   int sda_gpio;
   int scl_gpio;
+  OrestisQueue data_history;
   SFEVL53L1X distanceSensor;
 
 public:
@@ -293,22 +462,22 @@ public:
     this->sda_gpio = sda_gpio;
     this->scl_gpio = scl_gpio;
   }
-  void init()
-  {
-    // SFEVL53L1X distanceSensor; // I2C for TimeOfFlight Sensor
+
+    void init()
+    {      
+      Wire.begin(this->sda_gpio, this->scl_gpio);
 
     Wire.begin(this->sda_gpio, this->scl_gpio);
 
     // I2C TimeOfFlight Sensor SETUP
     Serial.println("VL53L1X Qwiic Test");
     delay(5000);
+    distanceSensor.setDistanceModeShort();
+    // distanceSensor.setDistanceModeLong();
 
-    if (distanceSensor.begin() != 0) // Begin returns 0 on a good init
-    {
-      Serial.println("Sensor failed to begin. Please check wiring. Freezing...");
-      while (1)
-        ;
-    }
+    // Creating history
+    this->data_history.init(1000);
+
     Serial.println("Sensor online!");
 
     distanceSensor.setDistanceModeShort();
@@ -323,14 +492,15 @@ public:
     {
       delay(1);
     }
+    if (distance != 0) { // Not possible to read 0. It's an error.
+      data_history.append(distance);
+    }
+    int m = data_history.getSpecialMedian();
 
-    int distance = distanceSensor.getDistance(); // Get the result of the measurement from the sensor
-    distanceSensor.clearInterrupt();
-    distanceSensor.stopRanging();
+    // Serial.print("Reading distance: "); Serial.print(distance); 
+    // Serial.print(" / "); Serial.println(m);
 
-    // Serial.print("Reading distance"); Serial.println(distance);
-
-    return distance;
+    return m;
   }
 };
 
@@ -649,7 +819,7 @@ void drive(int move_degrees, int look_direction, int speed)
 //   return 0;
 // }
 
-// InfraredReceiver InfraredReceiverCenter(INFRARED_RECEIVER_GPIO);
+InfraredReceiver InfraredReceiverCenter(INFRARED_RECEIVER_GPIO);
 
 TimeOfFlight TimeOfFlightDegrees0(0, TIME_OF_FLIGHT_0_DEGREES_SDA_GPIO, TIME_OF_FLIGHT_0_DEGREES_SCL_GPIO);
 
@@ -777,8 +947,8 @@ void handleStateUpdate()
           'degrees': 0 \
         }, \
         'IR_sensor': { \
-          'beacon_700Hz': 0, \
-          'beacon_23Hz': 0 \
+          'beacon_700Hz': " + String(InfraredReceiverCenter.readIR700()) + ", \
+          'beacon_23Hz': " + String(InfraredReceiverCenter.readIR23()) + " \
         }, \
         'ToF_sensor': { \
           'distance': [" +
@@ -822,34 +992,67 @@ void handleStateUpdate()
 
 void setup()
 {
+
+  // Serial
   Serial.begin(115200);
 
   // WIFI SETUP
   Serial.print("Access Point SSID: ");
   Serial.print(ssid);
-  WiFi.mode(WIFI_AP);          // Set Mode to Access Point
+  WiFi.mode(WIFI_STA);          // Set Mode to Access Point
   WiFi.softAP(ssid, password); // Define access point SSID and its password
 
   IPAddress myIP(192, 168, 1, 161);                                                // Define my unique Static IP (from spreadsheet on slides)
   WiFi.softAPConfig(myIP, IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0)); // Define the (local IP, Gateway, Subnet mask)
 
-  Serial.print("Use this URL to connect: http://");
-  Serial.print(myIP);
-  Serial.println("/"); // Print the IP to connect to
-
   h.begin();
-
   h.attachHandler("/ ", handleRoot);
   h.attachHandler("/key_pressed?val=", handleKeyPressed);
   h.attachHandler("/get_updated_state", handleStateUpdate);
 
+  // Time Of Flight sensor
   TimeOfFlightDegrees0.init();
   delay(2000);
 
   OneVive.init();
+
+  // ESP NOW
+  esp_now_init();
+  esp_now_add_peer(&staffcomm);
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LOOP ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+void specialDelay(int milliseconds) {
+  int beginTime = millis();
+  int nowTime = beginTime;
+
+  while (millis() - beginTime < milliseconds) {
+    TimeOfFlightDegrees0.getDistance();
+    // h.serve(); // listen to the frontend commands
+    // InfraredReceiverCenter.measure700();
+    // InfraredReceiverCenter.measure23();
+    pingstaff();
+    sendXY(30, 1000, 1000);
+  }
+}
+
+int startTime = millis();
+int currentTime = 0;
+int lastTime = 0;
+
+// IR vars
+int slowDownTime = 0;
+
+int searching = 1;
+int straightDriving = 1;
+int scanning = 0;
+int jamming = 0;
+int going = 0;
+int lastIRReading = 0;
+int preloopIR = 0;
+
+int firstLoop = 1;
 
 void loop()
 {
