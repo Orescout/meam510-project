@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 
@@ -190,6 +189,9 @@
   <b>Raw Vive Coordinates - Vive #2 Red: </b>
   <span id="vive-two-coordinates"> </span> <br>
 
+  <b>Distance: </b>
+  <span id="distance-sensor"> </span> <br>
+
   <span class="arrowbtn arrowbtn-lookleft" id="arrow-lookleft"></span>
   <span class="arrowbtn arrowbtn-lookright" id="arrow-lookright"></span>
 
@@ -200,7 +202,7 @@
 
   <canvas class="canvas" id="canvas-background" width="705" height="285" style="border:1px solid #ffffff;"></canvas>
   <canvas class="canvas" id="canvas-robot" width="705" height="285"></canvas>
-  <canvas class="canvas-vive-raw" id="canvas-vive-raw" width="500" height="500" style="border:1px solid #ffa9a9;"></canvas>
+  <canvas class="canvas-vive-raw" id="canvas-vive-raw" width="700" height="700" style="border:1px solid #ffa9a9;"></canvas>
 
 </body>
 
@@ -422,9 +424,12 @@
     context_robot.fillStyle = "rgba(" + motor_dir_D * 255 + ", " + motor_dir_D * 255 + ", " + motor_dir_D * 255 + "," + motor_power_D + ")"; // Back Right Motor D
     context_robot.fillRect(robot_width * 0.85, robot_height * 0.6, robot_width * 0.1, robot_height * 0.3);
     
+    // Print distance sensor readings
+    document.getElementById("distance-sensor").innerHTML = String(distance);
+
     // Part II: Update Vive Canvas
 
-    if (vive_clear_counter > 100) {
+    if (vive_clear_counter > 20) {
       // reset vive canvas
       context_raw_vive.setTransform(1, 0, 0, 1, 0, 0); // Use the identity matrix while clearing the canvas
       context_raw_vive.clearRect(0, 0, document.getElementById("canvas-vive-raw").clientWidth, document.getElementById("canvas-vive-raw").clientHeight); // Clean it
@@ -442,7 +447,7 @@
           context_raw_vive.moveTo(p, 0.5 + x + p);
           context_raw_vive.lineTo(bw + p, 0.5 + x + p);
       }
-      context_raw_vive.strokeStyle = "black";
+      context_raw_vive.strokeStyle = "white";
       context_raw_vive.stroke();
 
       vive_clear_counter = 0;
@@ -456,12 +461,27 @@
 
     // Plot vive sensor #1
     context_raw_vive.fillStyle = "rgba(255, 0, 0, 1)";
-    context_raw_vive.fillRect(Math.round(raw_left_x / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(raw_left_y / 10), 5, 5);
+    context_raw_vive.fillRect(Math.round(raw_left_x / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(raw_left_y / 10), 4, 4);
 
     // Plot vive sensor #2
     context_raw_vive.fillStyle = "rgba(0, 255, 255, 1)";
-    context_raw_vive.fillRect(Math.round(raw_right_x / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(raw_right_y / 10), 5, 5);
+    context_raw_vive.fillRect(Math.round(raw_right_x / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(raw_right_y / 10), 4, 4);
     
+    // Plot corners CHANGE HERE SOPHIE
+    context_raw_vive.fillStyle = "rgba(0, 0, 255, 1)";
+    context_raw_vive.fillRect(Math.round(6351 / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(3200/ 10), 5, 5);
+    context_raw_vive.fillRect(Math.round(3602 / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(3607 / 10), 5, 5);
+
+    context_raw_vive.fillRect(Math.round(1333 / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(4570 / 10), 5, 5);
+    context_raw_vive.fillRect(Math.round(1311 / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(4974 / 10), 5, 5);
+
+    context_raw_vive.fillRect(Math.round(1506 / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(2371 / 10), 5, 5);
+    context_raw_vive.fillRect(Math.round(1479 / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(2700 / 10), 5, 5);
+
+    context_raw_vive.fillRect(Math.round(6211/ 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(5431/ 10), 5, 5);
+    context_raw_vive.fillRect(Math.round(6178 / 10), document.getElementById("canvas-vive-raw").clientHeight - Math.round(5698 / 10), 5, 5);
+
+
   }
 
 </script>

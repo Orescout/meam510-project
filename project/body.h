@@ -191,6 +191,9 @@ const char body[] PROGMEM = R"===(
   <b>Raw Vive Coordinates - Vive #2 Red: </b>
   <span id="vive-two-coordinates"> </span> <br>
 
+  <b>Distance: </b>
+  <span id="distance-sensor"> </span> <br>
+
   <span class="arrowbtn arrowbtn-lookleft" id="arrow-lookleft"></span>
   <span class="arrowbtn arrowbtn-lookright" id="arrow-lookright"></span>
 
@@ -423,9 +426,12 @@ const char body[] PROGMEM = R"===(
     context_robot.fillStyle = "rgba(" + motor_dir_D * 255 + ", " + motor_dir_D * 255 + ", " + motor_dir_D * 255 + "," + motor_power_D + ")"; // Back Right Motor D
     context_robot.fillRect(robot_width * 0.85, robot_height * 0.6, robot_width * 0.1, robot_height * 0.3);
     
+    // Print distance sensor readings
+    document.getElementById("distance-sensor").innerHTML = String(distance);
+
     // Part II: Update Vive Canvas
 
-    if (vive_clear_counter > 20) {
+    if (vive_clear_counter > 100) {
       // reset vive canvas
       context_raw_vive.setTransform(1, 0, 0, 1, 0, 0); // Use the identity matrix while clearing the canvas
       context_raw_vive.clearRect(0, 0, document.getElementById("canvas-vive-raw").clientWidth, document.getElementById("canvas-vive-raw").clientHeight); // Clean it

@@ -255,26 +255,30 @@ public:
   }
     void init()
     {
-      //assigning input pin from IR sensor board
-      pinMode(this->IR_gpio, INPUT);
+        Serial.print("Starting IR sensor: ");
 
-      //1 is if the signal is high, 0 is if its low
-      this->signal_state_700 = 1;
-      this->signal_state_23 = 1;
+        // assigning input pin from IR sensor board
+        pinMode(this->IR_gpio, INPUT);
 
-      //used to calculate frequency
-      this->frequency_700;
-      this->frequency_23;
+        // 1 is if the signal is high, 0 is if its low
+        this->signal_state_700 = 1;
+        this->signal_state_23 = 1;
 
-      //both used for calculating frequency
-      this->current_time_700;
-      this->current_time_23;
-      this->first_low_time_700;
-      this->first_low_time_23;
+        // used to calculate frequency
+        this->frequency_700;
+        this->frequency_23;
 
-      //storing what signals are present
-      this->signal_700_present = 0;
-      this->signal_23_present = 0;
+        // both used for calculating frequency
+        this->current_time_700;
+        this->current_time_23;
+        this->first_low_time_700;
+        this->first_low_time_23;
+
+        // storing what signals are present
+        this->signal_700_present = 0;
+        this->signal_23_present = 0;
+
+        Serial.println("SUCCESS!");
     }
 
     //outputs a 1 if 700 Hz is found
@@ -454,6 +458,7 @@ private:
   int scl_gpio;
   OrestisQueue data_history;
   SFEVL53L1X distanceSensor;
+  int first_calculation;
 
 public:
   TimeOfFlight(int degrees_pointing, int sda_gpio, int scl_gpio)
@@ -463,45 +468,55 @@ public:
     this->scl_gpio = scl_gpio;
   }
 
-    void init()
+  void init()
     {      
       Wire.begin(this->sda_gpio, this->scl_gpio);
 
-    Wire.begin(this->sda_gpio, this->scl_gpio);
+      // I2C TimeOfFlight Sensor SETUP
+      Serial.print("Starting distance sensor: ");
+      delay(5000);
 
-    // I2C TimeOfFlight Sensor SETUP
-    Serial.println("VL53L1X Qwiic Test");
-    delay(5000);
-    distanceSensor.setDistanceModeShort();
-    // distanceSensor.setDistanceModeLong();
+      if (distanceSensor.begin() != 0) // Begin returns 0 on a good init
+      {
+        Serial.print("failing... ");
+        while (1)
+          ;
+      }
+      Serial.println("SUCCESS!");
+      distanceSensor.setDistanceModeShort();
+      // distanceSensor.setDistanceModeLong();
+      
+      // Creating history
+      this->data_history.init(1000);
 
-    // Creating history
-    this->data_history.init(1000);
-
-    Serial.println("Sensor online!");
-
-    distanceSensor.setDistanceModeShort();
-    // distanceSensor.setDistanceModeLong();
+      first_calculation = 1; // intialize
   }
 
-  int getDistance()
-  {
-    distanceSensor.startRanging(); // Write configuration bytes to initiate measurement
+  void calculateDistance()
+    { 
 
-    while (!distanceSensor.checkForDataReady())
-    {
-      delay(1);
+      if (first_calculation) {
+        distanceSensor.startRanging(); // Start ranging! ISSUEEEE
+        first_calculation = 0;
+      }
+
+      if (distanceSensor.checkForDataReady()) { // The signal came back
+        int distance = distanceSensor.getDistance(); // Get the result of the measurement from the sensor
+
+        distanceSensor.clearInterrupt();
+        distanceSensor.stopRanging();
+
+        if (distance != 0) { // Not possible to read 0. It's an error.
+          data_history.append(distance);
+        }
+
+        distanceSensor.startRanging(); // Start ranging again!
+      }
     }
-    if (distance != 0) { // Not possible to read 0. It's an error.
-      data_history.append(distance);
+
+    int getDistance() {
+      return this->data_history.getSpecialMedian();
     }
-    int m = data_history.getSpecialMedian();
-
-    // Serial.print("Reading distance: "); Serial.print(distance); 
-    // Serial.print(" / "); Serial.println(m);
-
-    return m;
-  }
 };
 
 // Class for our Vive sensors
@@ -563,9 +578,6 @@ public:
     }
 };
 
-// ViveSensor ViveRightSensor(0, VIVE_RIGHT_GPIO);
-// ViveSensor ViveLeftSensor(1, VIVE_LEFT_GPIO);
-
 // Class for our Time Of Flight distance sensors
 class ViveMegaClass
 {
@@ -573,10 +585,10 @@ private:
   ViveSensor LeftSensor;
   ViveSensor RightSensor;
   
-  int left_x_coordinate; 
-  int left_y_coordinate;
-  int right_x_coordinate;
-  int right_y_coordinate;
+  OrestisQueue left_x_coordinate; 
+  OrestisQueue left_y_coordinate;
+  OrestisQueue right_x_coordinate;
+  OrestisQueue right_y_coordinate;
 
   int left_vive_gpio;
   int right_vive_gpio;
@@ -589,13 +601,17 @@ public:
   }
 
   void init() {
+      Serial.print("Starting Vive x2 sensors: ");
+
       this->LeftSensor.init(1, this->left_vive_gpio);
       this->RightSensor.init(0, this->right_vive_gpio);
 
-      this->left_x_coordinate = 0;
-      this->left_y_coordinate = 0;
-      this->right_x_coordinate = 0;
-      this->right_y_coordinate = 0;
+      this->left_x_coordinate.init(4000);
+      this->left_y_coordinate.init(4000);
+      this->right_x_coordinate.init(4000);
+      this->right_y_coordinate.init(4000);
+
+      Serial.println("SUCCESS!");
   }
 
   void calculateCoordinates() {
@@ -608,27 +624,27 @@ public:
 
     // If valid, update
     if (hasValidCoordinates(left_x, left_y, right_x, right_y)) {
-      this->left_x_coordinate = left_x;
-      this->left_y_coordinate = left_y;
-      this->right_x_coordinate = right_x;
-      this->right_y_coordinate = right_y;
+      this->left_x_coordinate.append(left_x);
+      this->left_y_coordinate.append(left_y);
+      this->right_x_coordinate.append(right_x);
+      this->right_y_coordinate.append(right_y);
     }
   }
 
   int getLeftX(){
-    return this->left_x_coordinate;
+    return this->left_x_coordinate.getSpecialMedian();
   }
 
   int getLeftY(){
-    return this->left_y_coordinate;
+    return this->left_y_coordinate.getSpecialMedian();
   }
 
   int getRightX(){
-    return this->right_x_coordinate;
+    return this->right_x_coordinate.getSpecialMedian();
   }
 
   int getRightY(){
-    return this->right_y_coordinate;
+    return this->right_y_coordinate.getSpecialMedian();
   }
 
   int hasValidCoordinates(int left_x, int left_y, int right_x, int right_y)
@@ -995,10 +1011,9 @@ void setup()
 
   // Serial
   Serial.begin(115200);
+  Serial.println(" ");
 
   // WIFI SETUP
-  Serial.print("Access Point SSID: ");
-  Serial.print(ssid);
   WiFi.mode(WIFI_STA);          // Set Mode to Access Point
   WiFi.softAP(ssid, password); // Define access point SSID and its password
 
@@ -1028,7 +1043,7 @@ void specialDelay(int milliseconds) {
   int nowTime = beginTime;
 
   while (millis() - beginTime < milliseconds) {
-    TimeOfFlightDegrees0.getDistance();
+    TimeOfFlightDegrees0.calculateDistance();
     // h.serve(); // listen to the frontend commands
     // InfraredReceiverCenter.measure700();
     // InfraredReceiverCenter.measure23();
@@ -1037,26 +1052,50 @@ void specialDelay(int milliseconds) {
   }
 }
 
-int startTime = millis();
-int currentTime = 0;
-int lastTime = 0;
+int serveClock = millis();
+int viveClock = millis();
+int distanceClock = millis();
+int commsClock = millis();
 
-// IR vars
-int slowDownTime = 0;
+void doInLoop() {
+  Serial.println("Start: " + String(millis()));
+  OneVive.calculateCoordinates(); // 0ms
+  Serial.println(millis());
+  // h.serve(); // 47ms
+  Serial.println(millis());
+  // if (millis() % 300 < 10) {
+  // TimeOfFlightDegrees0.calculateDistance(); // 34ms
+  // }
+  Serial.println(millis());
+  InfraredReceiverCenter.measure700(); // 0ms
+  Serial.println(millis());
+  InfraredReceiverCenter.measure23(); // 0ms
+  // Serial.println(millis());
+  // pingstaff(); // 0ms
+  // Serial.println(millis());
+  // sendXY(30, 1000, 1000); // 0ms
+  // Serial.println(millis());
+  // Serial.println(millis());
+  // Serial.println();
 
-int searching = 1;
-int straightDriving = 1;
-int scanning = 0;
-int jamming = 0;
-int going = 0;
-int lastIRReading = 0;
-int preloopIR = 0;
+  if (millis() - serveClock > 10) {
+    h.serve(); // 47ms
+    serveClock = millis();
+  }
 
-int firstLoop = 1;
+  if (millis() - distanceClock > 50) {
+    TimeOfFlightDegrees0.calculateDistance(); // 34ms
+    distanceClock = millis();
+  }
+
+  if (millis() - commsClock > 1000) {
+    pingstaff(); // 0ms
+    sendXY(30, 1000, 1000); // 0ms
+    commsClock = millis();
+  }
+}
 
 void loop()
 {
-  OneVive.calculateCoordinates();
-
-  h.serve(); // listen to the frontend commands
+  doInLoop();
 }
