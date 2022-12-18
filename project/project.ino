@@ -1043,12 +1043,7 @@ void specialDelay(int milliseconds) {
   int nowTime = beginTime;
 
   while (millis() - beginTime < milliseconds) {
-    TimeOfFlightDegrees0.calculateDistance();
-    // h.serve(); // listen to the frontend commands
-    // InfraredReceiverCenter.measure700();
-    // InfraredReceiverCenter.measure23();
-    pingstaff();
-    sendXY(30, 1000, 1000);
+    doInLoop();
   }
 }
 
@@ -1089,13 +1084,243 @@ void doInLoop() {
   }
 
   if (millis() - commsClock > 1000) {
-    pingstaff(); // 0ms
-    sendXY(30, 1000, 1000); // 0ms
+    // pingstaff(); // 0ms
+    sendXY(30, 1212, 5637); // 0ms
     commsClock = millis();
   }
 }
 
 void loop()
 {
-  doInLoop();
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LEFT CORNER ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // drive(0, 0, 8); // move straight
+  // specialDelay(900);
+
+  // drive(90, 0, 8); // jam right
+  // specialDelay(1500);
+
+  // drive(0, 0, 5); // move straight
+  // specialDelay(400);
+
+  // drive(-1, 1, 5); // turn right 45 degrees
+  // specialDelay(300);
+
+  // drive(0, 0, 5); // move straight
+  // specialDelay(300);
+
+  // drive(-1, 1, 5); // turn right 45 degrees
+  // specialDelay(300);
+
+  // drive(0, 0, 5); // move straight
+  // specialDelay(300);
+
+  // drive(-1, 1, 5); // turn right 45 degrees
+  // specialDelay(100);
+
+  // drive(0, 0, 5); // move straight
+  // specialDelay(300);
+
+  // drive(-1, 1, 5); // turn right 45 degrees
+  // specialDelay(300);
+
+  // drive(0, 0, 5); // move straight
+  // specialDelay(300);
+
+  // drive(-1, 1, 5); // turn right 45 degrees
+  // specialDelay(300);
+
+  // drive(0, 0, 5); // move straight
+  // specialDelay(300);
+
+  // drive(-1, 1, 5); // turn right 45 degrees
+  // specialDelay(300);
+
+  // drive(0, 0, 5); // move straight
+  // specialDelay(300);
+
+  // drive(-1, 1, 5); // turn right 45 degrees
+  // specialDelay(300);
+
+  // drive(0, 0, 8); // move straight
+  // specialDelay(1200);
+
+  // drive(180, 0, 8); // drive back a bit
+  // specialDelay(500);
+
+  // drive(-1, 1, 8); // turn right 180 degrees
+  // specialDelay(1800);
+
+  // drive(180, 0, 8); // jam back
+  // specialDelay(1500);
+
+  // drive(270, 0, 8); // shift right
+  // specialDelay(2000);
+
+  // drive(180, 0, 8); // jam back
+  // specialDelay(1500);
+
+  // drive(270, 0, 8); // shift right
+  // specialDelay(3000);
+
+  // drive(0, 0, 8); // move straight
+  // specialDelay(2000);
+
+  // drive(270, 0, 8); // shift right
+  // specialDelay(1000);
+
+  // drive(0, 0, 8); // move straight
+  // specialDelay(2000);
+
+  // drive(270, 0, 8); // shift right
+  // specialDelay(1000);
+
+  // drive(0, 0, 8); // move straight
+  // specialDelay(3000);
+
+  // drive(90, 0, 8); // shift RIGHT
+  // specialDelay(3500);
+
+  // drive(0, 0, 8); // move straight
+  // specialDelay(2000);
+
+  // drive(270, 0, 8); // shift right
+  // specialDelay(2000);
+
+  // drive(0, 0, 8); // move straight
+  // specialDelay(2000);
+
+  // drive(270, 0, 8); // shift right
+  // specialDelay(2000);
+
+  // drive(0, 0, 8); // move straight
+  // specialDelay(2000);
+
+  // drive(270, 0, 8); // shift right
+  // specialDelay(2000);
+
+  // drive(0, 0, 8); // move straight
+  // specialDelay(2000);
+
+  // drive(270, 0, 8); // shift right
+  // specialDelay(2000);
+
+  // drive(-1, 0, 0);
+  // specialDelay(20000000);
+  
+
+
+  // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ RIGHT CORNER ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  drive(0, 0, 8); // move straight
+  specialDelay(900);
+
+  drive(270, 0, 8); // jam left
+  specialDelay(1500);
+
+  drive(0, 0, 5); // move straight
+  specialDelay(400);
+
+  drive(-1, -1, 5); // turn right 45 degrees
+  specialDelay(300);
+
+  drive(0, 0, 5); // move straight
+  specialDelay(300);
+
+  drive(-1, -1, 5); // turn right 45 degrees
+  specialDelay(300);
+
+  drive(0, 0, 5); // move straight
+  specialDelay(300);
+
+  drive(-1, -1, 5); // turn right 45 degrees
+  specialDelay(300);
+
+  drive(0, 0, 5); // move straight
+  specialDelay(300);
+
+  drive(-1, -1, 5); // turn right 45 degrees
+  specialDelay(300);
+
+  drive(0, 0, 5); // move straight
+  specialDelay(300);
+
+  drive(-1, -1, 5); // turn right 45 degrees
+  specialDelay(300);
+
+  drive(0, 0, 5); // move straight
+  specialDelay(300);
+
+  drive(-1, -1, 5); // turn right 45 degrees
+  specialDelay(300);
+
+  drive(0, 0, 5); // move straight
+  specialDelay(300);
+
+  drive(-1, -1, 5); // turn right 45 degrees
+  specialDelay(300);
+
+  drive(0, 0, 8); // move straight
+  specialDelay(1200);
+
+  drive(180, 0, 8); // drive back a bit
+  specialDelay(500);
+
+  drive(-1, -1, 8); // turn right 180 degrees
+  specialDelay(1800);
+
+  drive(180, 0, 8); // jam back
+  specialDelay(1500);
+
+  drive(90, 0, 8); // shift right
+  specialDelay(2000);
+
+  drive(180, 0, 8); // jam back
+  specialDelay(1500);
+
+  drive(90, 0, 8); // shift right
+  specialDelay(3000);
+
+  drive(0, 0, 8); // move straight
+  specialDelay(2000);
+
+  drive(90, 0, 8); // shift right
+  specialDelay(1000);
+
+  drive(0, 0, 8); // move straight
+  specialDelay(2000);
+
+  drive(90, 0, 8); // shift right
+  specialDelay(1000);
+
+  drive(0, 0, 8); // move straight
+  specialDelay(2200);
+
+  drive(270, 0, 8); // shift left TO GO TO THE BOX!!!
+  specialDelay(3000);
+
+  // drive(0, 0, 8); // move straight
+  // specialDelay(2000);
+
+  // drive(90, 0, 8); // shift right
+  // specialDelay(2000);
+
+  // drive(0, 0, 8); // move straight
+  // specialDelay(2000);
+
+  // drive(90, 0, 8); // shift right
+  // specialDelay(2000);
+
+  // drive(0, 0, 8); // move straight
+  // specialDelay(2000);
+
+  // drive(90, 0, 8); // shift right
+  // specialDelay(2000);
+
+  // drive(0, 0, 8); // move straight
+  // specialDelay(2000);
+
+  // drive(90, 0, 8); // shift right
+  // specialDelay(2000);
+
+  drive(-1, 0, 0);
+  specialDelay(20000000);
 }
